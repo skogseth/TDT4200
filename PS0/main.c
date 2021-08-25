@@ -35,19 +35,23 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    //TODO 2 - typecast pointer
-    pixel* pixels_1;
-    pixel* pixels_2;
+    pixel* pixels_1 = (pixel*)char_pixels_1;
+    pixel* pixels_2 = (pixel*)char_pixels_2;
 
-    //TODO 3 - malloc
-    pixel* pixels_out = (pixel *) char_pixels_1;
+    pixel* pixels_out = (pixel*)malloc(sizeof(pixel)*height*width);
 
-    //TODO 4 - loop
-    //Write your loop here
+    for(int i=0; i<height*width; i++){
+        pixels_out[i].r = 0.5*(pixels_1[i].r + pixels_2[i].r);
+        pixels_out[i].g = 0.5*(pixels_1[i].g + pixels_2[i].g);
+        pixels_out[i].b = 0.5*(pixels_1[i].b + pixels_2[i].b);
+        pixels_out[i].a = 255;
+    }
 
     stbi_write_png("output.png", width, height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * width);
 
-    //TODO 5 - free
+    free(pixels_1);
+    free(pixels_2);
+    free(pixels_out);
 
     return 0;
 }
