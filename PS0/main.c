@@ -1,5 +1,3 @@
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -31,7 +29,7 @@ int main(int argc, char** argv)
     unsigned char* char_pixels_1 = stbi_load(argv[1], &width, &height, &channels, STBI_rgb_alpha);
     unsigned char* char_pixels_2 = stbi_load(argv[2], &width, &height, &channels, STBI_rgb_alpha);
 
-    printf("height:%d, width: %d\n", height, width);
+    printf("height:% d, width: %d\n", height, width);
     if (char_pixels_1 == NULL || char_pixels_2 == NULL)
     {
         exit(1);
