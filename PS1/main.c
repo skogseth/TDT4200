@@ -95,41 +95,30 @@ int main(int argc, char** argv)
 	if(rank==root){
 		pixels_in = (pixel*)stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
 		if(pixels_in == NULL){ exit(1); }
-		//printf("Image dimensions: %dx%d\n", in_width, in_height);
+		printf("Image dimensions: %dx%d\n", in_width, in_height);
 	}
-
 	MPI_Bcast(&in_height, 1, MPI_INT, root, MPI_COMM_WORLD);
 	MPI_Bcast(&in_width, 1, MPI_INT, root, MPI_COMM_WORLD);
-
 	if(rank!=root){ pixels_in = (pixel*)malloc(sizeof(pixel)*in_height*in_width); }
-
 	MPI_Bcast(pixels_in, 1, mpi_pixel_type, root, MPI_COMM_WORLD);
 
-    printf("MY NAME IS %d, AND in_height IS %d AND in_width IS %d\n", rank, in_height, in_width);
 
-
-	MPI_Finalize();
-	return 0;
-
-
-
-
-
+	/* this code was here when i arrived */
 	double scale_x = argc > 2 ? atof(argv[2]) : 2;
 	double scale_y = argc > 3 ? atof(argv[3]) : 8;
 
 	int out_width = in_width * scale_x;
 	int out_height = in_height * scale_y;
 
-//TODO 3 - partitioning
-	int local_width = in_width;
-	int local_height = in_height;
 
-	int local_out_width = out_width;
-	int local_out_height = out_height;
+	/* spread out and search for clues */
+	int local_width = in_width/comm_size;
+	int local_height = in_height/comm_size;
 
-	pixel* local_out = (pixel *) malloc(sizeof(pixel) * local_out_width * local_out_height);
-//TODO END
+	int local_out_width = out_width/comm_size;
+	int local_out_height = out_height/comm_size;
+
+	pixel* local_out = (pixel*)malloc(sizeof(pixel) * local_out_width * local_out_height);
 
 
 //TODO 4 - computation
