@@ -17,8 +17,6 @@ typedef struct pixel_struct {
 	unsigned char a;
 } pixel;
 
-
-
 //--------------------------------------------------------------------------------------------------
 //--------------------------bilinear interpolation--------------------------------------------------
 //--------------------------------------------------------------------------------------------------
@@ -52,7 +50,7 @@ void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height
 
 //Helper function to locate the source of errors
 void
-SEGVFunction( int sig_num)
+SEGVFunction(int sig_num)
 {
 	printf ("\n Signal %d received\n",sig_num);
 	exit(sig_num);
@@ -60,34 +58,65 @@ SEGVFunction( int sig_num)
 
 int main(int argc, char** argv)
 {
+	/* initialization */
 	signal(SIGSEGV, SEGVFunction);
 	stbi_set_flip_vertically_on_load(true);
 	stbi_flip_vertically_on_write(true);
 
-//TODO 1 - init
-    int comm_size;
-    int rank;
-//TODO END
+    int comm_size; int rank;
+	const int root = 0;
+	MPI_Init(NULL, NULL);
+	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 
+	/* create an mpi type for struct pixel */
+	const int nitems=4;
+	int blocklengths[4] = {1,1,1,1};
+	MPI_Datatype types[4] = {MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR};
+	MPI_Datatype mpi_pixel_type;
+	MPI_Aint offsets[4];
+
+	offsets[0] = offsetof(pixel, r);
+	offsets[1] = offsetof(pixel, g);
+	offsets[2] = offsetof(pixel, b);
+	offsets[3] = offsetof(pixel, a);
+
+	MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_pixel_type);
+	MPI_Type_commit(&mpi_pixel_type);
+
+
+	/* root loads image and broadcasts the data (as well as size) */
 	pixel* pixels_in;
-
 	int in_width;
 	int in_height;
 	int channels;
 
-
-//TODO 2 - broadcast
-	pixels_in = (pixel *) stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
-	if (pixels_in == NULL) {
-		exit(1);
+	if(rank==root){
+		pixels_in = (pixel*)stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
+		if(pixels_in == NULL){ exit(1); }
+		//printf("Image dimensions: %dx%d\n", in_width, in_height);
 	}
-	printf("Image dimensions: %dx%d\n", in_width, in_height);
-//TODO END
+
+	MPI_Bcast(&in_height, 1, MPI_INT, root, MPI_COMM_WORLD);
+	MPI_Bcast(&in_width, 1, MPI_INT, root, MPI_COMM_WORLD);
+
+	if(rank!=root){ pixels_in = (pixel*)malloc(sizeof(pixel)*in_height*in_width); }
+
+	MPI_Bcast(pixels_in, 1, mpi_pixel_type, root, MPI_COMM_WORLD);
+
+    printf("MY NAME IS %d, AND in_height IS %d AND in_width IS %d\n", rank, in_height, in_width);
 
 
-	double scale_x = argc > 2 ? atof(argv[2]): 2;
-	double scale_y = argc > 3 ? atof(argv[3]): 8;
+	MPI_Finalize();
+	return 0;
+
+
+
+
+
+	double scale_x = argc > 2 ? atof(argv[2]) : 2;
+	double scale_y = argc > 3 ? atof(argv[3]) : 8;
 
 	int out_width = in_width * scale_x;
 	int out_height = in_height * scale_y;
@@ -125,7 +154,6 @@ int main(int argc, char** argv)
 //TODO END
 
 
-//TODO 1 - init
-//TODO END
+	MPI_Finalize();
 	return 0;
 }
