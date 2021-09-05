@@ -58,6 +58,9 @@ SEGVFunction(int sig_num)
 
 int main(int argc, char** argv)
 {
+	printf("Booting up\n");
+
+
 	/* initialization */
 	signal(SIGSEGV, SEGVFunction);
 	stbi_set_flip_vertically_on_load(true);
@@ -68,6 +71,9 @@ int main(int argc, char** argv)
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+
+	printf("Process %d checking in\n",rank);
 
 
 	/* create an mpi type for struct pixel */
@@ -94,13 +100,16 @@ int main(int argc, char** argv)
 
 	if(rank==root){
 		pixels_in = (pixel*)stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
-		if(pixels_in == NULL){ exit(1); }
+		if(pixels_in == NULL){ printf("Ohshitwaddup\n"); exit(1); }
 		printf("Image dimensions: %dx%d\n", in_width, in_height);
 	}
 	MPI_Bcast(&in_height, 1, MPI_INT, root, MPI_COMM_WORLD);
 	MPI_Bcast(&in_width, 1, MPI_INT, root, MPI_COMM_WORLD);
 	if(rank!=root){ pixels_in = (pixel*)malloc(sizeof(pixel)*in_height*in_width); }
 	MPI_Bcast(pixels_in, 1, mpi_pixel_type, root, MPI_COMM_WORLD);
+
+
+	printf("Broadcasting finished for process %d\n",rank);
 
 
 	/* this code was here when i arrived */
@@ -121,26 +130,34 @@ int main(int argc, char** argv)
 	pixel* local_out = (pixel*)malloc(sizeof(pixel) * local_out_width * local_out_height);
 
 
-//TODO 4 - computation
+	printf("Calculations done for process %d\n",rank);
+
+
+	/* computation */
 	for(int i = 0; i < local_out_height; i++) {
 		for(int j = 0; j < local_out_width; j++) {
 			pixel new_pixel;
 
-			float row = i * (in_height-1) / (float)out_height;
-			float col = j * (in_width-1) / (float)out_width;
+			float row = i * (local_height-1) / (float)local_out_height + rank * (float)local_height;
+			float col = j * (local_width-1) / (float)local_out_width + rank * (float)local_width;
 
 			bilinear(pixels_in, row, col, &new_pixel, in_width, in_height);
 
-			local_out[i*out_width+j] = new_pixel;
+			local_out[i*local_out_width+j] = new_pixel;
 		}
 	}
-//TODO END
 
 
-//TODO 5 - gather
-	pixel* pixels_out = local_out;
-	stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * out_width);
-//TODO END
+	printf("Computation done for process %d\n",rank);
+	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Finalize();
+	return 0;
+
+
+	/* gather around everyone, we about to make some magic */
+	pixel* pixels_out = rank==root ? (pixel*)malloc(sizeof(pixel) * out_width * out_height) : local_out;
+	MPI_Gather(local_out, local_out_width*local_out_height, mpi_pixel_type, pixels_out, out_width*out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
+	if(rank==root){ stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * out_width); }
 
 
 	MPI_Finalize();
