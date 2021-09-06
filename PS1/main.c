@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 	if(rank==root){
 		pixels_in = (pixel*)stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
 		if(pixels_in == NULL){ printf("Ohshitwaddup\n"); exit(1); }
-		printf("Image dimensions: %dx%d\n", in_width, in_height);
+		printf("Image dimensions (input): %dx%d\n", in_width, in_height);
 	}
 	MPI_Bcast(&in_height, 1, MPI_INT, root, MPI_COMM_WORLD);
 	MPI_Bcast(&in_width, 1, MPI_INT, root, MPI_COMM_WORLD);
@@ -119,6 +119,8 @@ int main(int argc, char** argv)
 	int out_width = in_width * scale_x;
 	int out_height = in_height * scale_y;
 
+	if(rank==root){ printf("Image dimensions (output): %dx%d\n", out_width, out_height); }
+
 
 	/* spread out and search for clues */
 	int local_width = in_width/comm_size;
@@ -132,7 +134,7 @@ int main(int argc, char** argv)
 
 	printf("Calculations done for process %d\n",rank);
 
-
+	if(rank){
 	/* computation */
 	for(int i = 0; i < local_out_height; i++) {
 		for(int j = 0; j < local_out_width; j++) {
@@ -141,22 +143,22 @@ int main(int argc, char** argv)
 			float row = i * (local_height-1) / (float)local_out_height + rank * (float)local_height;
 			float col = j * (local_width-1) / (float)local_out_width + rank * (float)local_width;
 
+			//if(i==0 && j==0){ printf("row = %f, col = %f\n", row, col); }
 			bilinear(pixels_in, row, col, &new_pixel, in_width, in_height);
 
 			local_out[i*local_out_width+j] = new_pixel;
 		}
 	}
+	}
 
 
 	printf("Computation done for process %d\n",rank);
 	MPI_Barrier(MPI_COMM_WORLD);
-	MPI_Finalize();
-	return 0;
 
 
-	/* gather around everyone, we about to make some magic */
-	pixel* pixels_out = rank==root ? (pixel*)malloc(sizeof(pixel) * out_width * out_height) : local_out;
-	MPI_Gather(local_out, local_out_width*local_out_height, mpi_pixel_type, pixels_out, out_width*out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
+	/* gather around everyone*/
+	pixel* pixels_out = rank==root ? (pixel*)malloc(sizeof(pixel) * out_width * out_height) : NULL;
+	MPI_Gather(local_out, local_out_width*local_out_height, mpi_pixel_type, pixels_out, local_out_width*local_out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
 	if(rank==root){ stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * out_width); }
 
 
