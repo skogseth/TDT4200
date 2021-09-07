@@ -58,9 +58,6 @@ SEGVFunction(int sig_num)
 
 int main(int argc, char** argv)
 {
-	printf("Booting up\n");
-
-
 	/* initialization */
 	signal(SIGSEGV, SEGVFunction);
 	stbi_set_flip_vertically_on_load(true);
@@ -73,12 +70,9 @@ int main(int argc, char** argv)
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 
-	printf("Process %d checking in\n",rank);
-
-
 	/* create an mpi type for struct pixel */
 	const int nitems=4;
-	int blocklengths[4] = {1,1,1,1};
+	int blocklengths[4] = {sizeof(unsigned char),sizeof(unsigned char),sizeof(unsigned char),sizeof(unsigned char)};
 	MPI_Datatype types[4] = {MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR};
 	MPI_Datatype mpi_pixel_type;
 	MPI_Aint offsets[4];
@@ -88,7 +82,8 @@ int main(int argc, char** argv)
 	offsets[2] = offsetof(pixel, b);
 	offsets[3] = offsetof(pixel, a);
 
-	MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_pixel_type);
+	int status = MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_pixel_type);
+	if(status!=MPI_SUCCESS){ exit(1); }
 	MPI_Type_commit(&mpi_pixel_type);
 
 
@@ -100,16 +95,13 @@ int main(int argc, char** argv)
 
 	if(rank==root){
 		pixels_in = (pixel*)stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
-		if(pixels_in == NULL){ printf("Ohshitwaddup\n"); exit(1); }
+		if(pixels_in == NULL){ exit(1); }
 		printf("Image dimensions (input): %dx%d\n", in_width, in_height);
 	}
 	MPI_Bcast(&in_height, 1, MPI_INT, root, MPI_COMM_WORLD);
 	MPI_Bcast(&in_width, 1, MPI_INT, root, MPI_COMM_WORLD);
 	if(rank!=root){ pixels_in = (pixel*)malloc(sizeof(pixel)*in_height*in_width); }
-	MPI_Bcast(pixels_in, 1, mpi_pixel_type, root, MPI_COMM_WORLD);
-
-
-	printf("Broadcasting finished for process %d\n",rank);
+	MPI_Bcast(pixels_in, in_height*in_width, mpi_pixel_type, root, MPI_COMM_WORLD);
 
 
 	/* this code was here when i arrived */
@@ -123,25 +115,22 @@ int main(int argc, char** argv)
 
 
 	/* spread out and search for clues */
-	int local_width = in_width/comm_size;
+	int local_width = in_width;
 	int local_height = in_height/comm_size;
 
-	int local_out_width = out_width/comm_size;
+	int local_out_width = out_width;
 	int local_out_height = out_height/comm_size;
 
 	pixel* local_out = (pixel*)malloc(sizeof(pixel) * local_out_width * local_out_height);
 
 
-	printf("Calculations done for process %d\n",rank);
-
-	if(rank){
 	/* computation */
 	for(int i = 0; i < local_out_height; i++) {
 		for(int j = 0; j < local_out_width; j++) {
 			pixel new_pixel;
 
 			float row = i * (local_height-1) / (float)local_out_height + rank * (float)local_height;
-			float col = j * (local_width-1) / (float)local_out_width + rank * (float)local_width;
+			float col = j * (local_width-1) / (float)local_out_width;
 
 			//if(i==0 && j==0){ printf("row = %f, col = %f\n", row, col); }
 			bilinear(pixels_in, row, col, &new_pixel, in_width, in_height);
@@ -149,17 +138,18 @@ int main(int argc, char** argv)
 			local_out[i*local_out_width+j] = new_pixel;
 		}
 	}
-	}
-
-
-	printf("Computation done for process %d\n",rank);
-	MPI_Barrier(MPI_COMM_WORLD);
 
 
 	/* gather around everyone*/
 	pixel* pixels_out = rank==root ? (pixel*)malloc(sizeof(pixel) * out_width * out_height) : NULL;
-	MPI_Gather(local_out, local_out_width*local_out_height, mpi_pixel_type, pixels_out, local_out_width*local_out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
-	if(rank==root){ stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * out_width); }
+	MPI_Gather(local_out, local_out_width*local_out_height, mpi_pixel_type,
+		pixels_out, local_out_width*local_out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
+	if(rank==root){
+		stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * out_width);
+		free(pixels_out);
+	}
+	free(pixels_in);
+	free(local_out);
 
 
 	MPI_Finalize();
