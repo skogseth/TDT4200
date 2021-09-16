@@ -143,7 +143,7 @@ int main(int argc, char** argv)
 	/* gather around everyone*/
 	pixel* pixels_out = rank==root ? (pixel*)malloc(sizeof(pixel) * out_width * out_height) : NULL;
 	MPI_Gather(local_out, local_out_width*local_out_height, mpi_pixel_type,
-		pixels_out, local_out_width*local_out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
+		      pixels_out, local_out_width*local_out_height, mpi_pixel_type, root, MPI_COMM_WORLD);
 	if(rank==root){
 		stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, pixels_out, sizeof(pixel) * out_width);
 		free(pixels_out);
