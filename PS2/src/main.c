@@ -8,12 +8,10 @@
 #include <argument_utils.h>
 #include <mpi.h>
 
-// NOTE TO STUDENT:
-// The kernels are defined under argument_utils.h
-// Take a look at this file to get a feel for how the kernels look.
 
+// The kernels are defined under argument_utils.h
 // Apply convolutional kernel on image data
-void applyKernel(pixel **out, pixel **in, unsigned int width, unsigned int height, int *kernel, unsigned int kernelDim, float kernelFactor) {
+void applyKernel(pixel** out, pixel** in, unsigned int width, unsigned int height, int* kernel, unsigned int kernelDim, float kernelFactor) {
     unsigned int const kernelCenter = (kernelDim / 2);
     for (unsigned int imageY = 0; imageY < height; imageY++) {
         for (unsigned int imageX = 0; imageX < width; imageX++) {
@@ -50,54 +48,56 @@ void applyKernel(pixel **out, pixel **in, unsigned int width, unsigned int heigh
     }
 }
 
-int main(int argc, char **argv) {
 
+int main(int argc, char** argv) {
+    //////////////////////////////////////////////
+    // Initialization of MPI and handling input //
+    //////////////////////////////////////////////
 
+    // Initialization MPI
     MPI_Init(&argc, &argv);
-
-    int world_sz;
-    int world_rank;
-
-    MPI_Comm_size(MPI_COMM_WORLD, &world_sz);
+    int world_size, world_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    // Handling input using OPTIONS type (root reads)
     OPTIONS my_options;
-    OPTIONS *options = &my_options;
-
-    if ( world_rank == 0 ) {
+    OPTIONS* options = &my_options;
+    if(world_rank == 0){
         options = parse_args(argc, argv);
-
-        if ( options == NULL )
-        {
+        if(options == NULL){
             fprintf(stderr, "Options == NULL\n");
             exit(1);
         }
     }
 
+    //Broadcasting options to all processes, and removing uneccesary information for non-root processes
     MPI_Bcast(options, sizeof(OPTIONS), MPI_BYTE, 0, MPI_COMM_WORLD);
-
-    if( world_rank > 0 ) {
+    if(world_rank > 0){
         options->input = NULL;
         options->output = NULL;
     }
 
+
+
+    ////////////////////////////////////////
+    // Root loads image and broadcasts it //
+    ////////////////////////////////////////
     image_t dummy;
     dummy.rawdata = NULL;
     dummy.data = NULL;
 
-    image_t *image = &dummy;
-    image_t *my_image;
+    image_t* image = &dummy;
+    image_t* my_image;
 
-    if( world_rank == 0 ) {
+    // Root: Load image and print information
+    if(world_rank == 0){
         image = loadImage(options->input);
-        if (image == NULL) {
+        if(image == NULL){
             fprintf(stderr, "Could not load bmp image '%s'!\n", options->input);
             freeImage(image);
             abort();
         }
-    }
-
-    if ( world_rank == 0 ) {
         printf("Apply kernel '%s' on image with %u x %u pixels for %u iterations\n",
                 kernelNames[options->kernelIndex],
                 image->width,
@@ -113,94 +113,116 @@ int main(int argc, char **argv) {
             MPI_COMM_WORLD);    // Communicator
 
 
+
     //////////////////////////////////////////////////////////
     // Calculate how much of the image to send to each rank //
     //////////////////////////////////////////////////////////
-    int rows_to_receive[world_sz];
-    int bytes_to_transfer[world_sz];
-    int displacements[world_sz];
-    displacements[0] = 0;
+    int rows_to_receive[world_size];
+    int transfer_size[world_size];
+    int displacements[world_size];
 
-    int rows_per_rank = image->height / world_sz;
-    int remainder_rows = image->height % world_sz;
+    int rows_per_rank = image->height / world_size;
+    int remainder_rows = image->height % world_size;
 
-    for(int i = 0; i < world_sz; i++)
-    {
-        int rows_this_rank = rows_per_rank;
-
-        if ( i < remainder_rows ) {
-            rows_this_rank++;
-        }
-
-        int bytes_this_rank = rows_this_rank * image->width * sizeof(pixel);
-
-        rows_to_receive[i] = rows_this_rank;
-        bytes_to_transfer[i] = bytes_this_rank;
-
-        if(i > 0) {
-            displacements[i] = displacements[i - 1] + bytes_to_transfer[i - 1];
-        }
-
+    int current_displacement = 0;
+    for(int i = 0; i < world_size; i++){
+        displacements[i] = current_displacement;
+        rows_to_receive[i] = rows_per_rank + (i < remainder_rows ? 1 : 0);
+        transfer_size[i] = rows_to_receive[i] * image->width * sizeof(pixel);
+        current_displacement += transfer_size[i];
     }
 
-
-    int num_border_rows = (kernelDims[options->kernelIndex] - 1 ) / 2;
     int my_image_height = rows_to_receive[world_rank];
 
-    // TODO: Make space for halo-exchange
-    // ------------------------------------------------------------
-    // This should include space for the rows that are to be exchanged both
-    // at the top and at the bottom of each respective slice.
-    my_image = newImage(image->width, my_image_height);
+
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    // Taking a break to print the number of rows, both total and for each process allocated //
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(world_rank == 0) printf("Total rows: %d\n", image->height);
+    MPI_Barrier(MPI_COMM_WORLD);
+    printf("Local rows for process %d: %d\n", world_rank, my_image_height);
+    MPI_Barrier(MPI_COMM_WORLD);
+    ///////////////////////////////////////////////////////////////////////////////////////////
 
 
 
-    // Ternary operator
-    // Every rank other than 0 are not senders and thus
-    // do not need to actually have anything in the send buffer. These
-    // get their send buffer pointer set to NULL.
-    pixel *image_send_buffer = world_rank == 0 ? image->rawdata : NULL;
+    /////////////////////////////////////////////////////////////////////////////////////
+    // Allocate room for local image slice, and scatter core image (not including halo) //
+    /////////////////////////////////////////////////////////////////////////////////////
 
-    ///////////////////////////////////////////////////////////////////////////
-    // TODO: Update the recv buffer pointer.                                 //
-    //-----------------------------------------------------------------------//
-    // Should point to the start of where this rank's slice of the image     //
-    // starts. The topmost and bottom-most rows should not be written by the //
-    // scatter operation                                                     //
-    ///////////////////////////////////////////////////////////////////////////
-    pixel *my_image_slice = my_image->rawdata;
+    // If process is either the first or last it needs one border row, otherwise it needs 2
+    int num_border_rows = (kernelDims[options->kernelIndex] - 1 ) / 2;
+    int my_border_rows;
+    if(world_size == 1) my_border_rows = 0;
+    else my_border_rows = ( (world_rank == 0 || world_rank == world_size-1) ? 1 : 2 ) * num_border_rows;
+    my_image = newImage(image->width, my_image_height + my_border_rows);
 
-    MPI_Scatterv(image_send_buffer,        // Send Buffer
-            bytes_to_transfer,             // Send Counts
+    // Image-data for root process and NULL for non-root processes (since they do not need it)
+    pixel* image_data = (world_rank == 0) ? image->rawdata : NULL;
+    // local image slice: if root point at first pixel, if not point at second row (first real row)
+    pixel* my_image_slice = (world_rank == 0) ? my_image->rawdata : my_image->rawdata + num_border_rows * image->width;
+
+    MPI_Scatterv(image_data,               // Send Buffer
+            transfer_size,                 // Send Counts
             displacements,                 // Displacements
             MPI_BYTE,                      // Send Type
             my_image_slice,                // Recv Buffer
-            bytes_to_transfer[world_rank], // Recv Count
+            transfer_size[world_rank],     // Recv Count
             MPI_BYTE,                      // Recv Type
             0,                             // Root
             MPI_COMM_WORLD);               // Communicator
 
-    ///////////////////////////////////////////////////
-    // TODO: implement time measurement from here    //
-    ///////////////////////////////////////////////////
-    double starttime = 0.0f;
-
-    // Here we do the actual computation!
-    // image->data is a 2-dimensional array of pixel which is accessed row
-    // first ([y][x]) each pixel is a struct of 4 unsigned char for the red,
-    // blue and green colour channel
-    image_t *processImage = newImage(image->width, my_image->height);
-
-    size_t bytes_to_exchange = num_border_rows * sizeof(pixel) * my_image->width;
-    for (unsigned int i = 0; i < options->iterations; i ++) {
 
 
-        ///////////////////////////
-        // TODO: BORDER EXCHANGE //
-        ///////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    // Taking a break to print the number of image rows  for each process allocated //
+    ///////////////////////////////////////////////////////////////////////////////////////////
+    MPI_Barrier(MPI_COMM_WORLD);
+    printf("Border rows for process %d: %d ==> local rows: %d\n", world_rank, my_border_rows, my_image->height);
+    MPI_Barrier(MPI_COMM_WORLD);
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+    ///////////////////////////////////
+    // Beginning of time measurement //
+    ///////////////////////////////////
+    double start_time = MPI_Wtime();
+
+
+    /////////////////
+    // Computation //
+    /////////////////
+    // image->data is a 2-dimensional array of pixel which is accessed row first ([row][col])
+    // each pixel is a struct of 4 unsigned char for the red, blue and green colour channel
+    image_t* process_image = newImage(image->width, my_image->height);
+
+    int exchange_size = num_border_rows * image->width;
+
+    // Define pointers (for relevant processes) that point to exchange rows
+    pixel* upper_personal_row = (world_rank != 0) ? my_image->rawdata + num_border_rows * image->width : NULL;
+    pixel* lower_personal_row = (world_rank != world_size-1) ? my_image->rawdata + my_image->height * image->width - 2 * num_border_rows * image->width: NULL;
+    pixel* upper_border_row = (world_rank != 0) ? my_image->rawdata : NULL;
+    pixel* lower_border_row = (world_rank != world_size-1) ? my_image->rawdata + my_image->height * image->width - num_border_rows * image->width : NULL;
+
+    MPI_Status status;
+    for(unsigned int i = 0; i < options->iterations; i++){
+        // Border exchange
+        if(world_rank != 0){
+            MPI_Send(upper_personal_row, exchange_size, MPI_BYTE, world_rank-1, world_rank, MPI_COMM_WORLD);
+            MPI_Recv(upper_border_row, exchange_size, MPI_BYTE, world_rank-1, world_rank-1, MPI_COMM_WORLD, &status);
+        }
+        if(world_rank != world_size-1){
+            MPI_Send(lower_personal_row, exchange_size, MPI_BYTE, world_rank+1, world_rank, MPI_COMM_WORLD);
+            MPI_Recv(lower_border_row, exchange_size, MPI_BYTE, world_rank+1, world_rank+1, MPI_COMM_WORLD, &status);
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
 
         // Apply Kernel
-        applyKernel(processImage->data,
+        applyKernel(process_image->data,
                 my_image->data,
                 my_image->width,
                 my_image->height,
@@ -209,39 +231,45 @@ int main(int argc, char **argv) {
                 kernelFactors[options->kernelIndex]
                 );
 
-        swapImage(&processImage, &my_image);
+        // Save changes, basically
+        swapImage(&process_image, &my_image);
 
         // Wait until all ranks have done their part before resuming
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    freeImage(processImage);
-    /////////////////////////////////////////////////////////////////////
-    // TODO: Update the "Send Buffer" pointer such that it points      //
-    // to the starting location in each respective slice.              //
-    /////////////////////////////////////////////////////////////////////
+    freeImage(process_image);
 
-    MPI_Gatherv(my_image->rawdata,         // Send Buffer
-            bytes_to_transfer[world_rank], // Send Count
+
+    /////////////////////////////////////////
+    // Gather image data from all processes//
+    /////////////////////////////////////////
+    MPI_Gatherv(my_image_slice,            // Send Buffer
+            transfer_size[world_rank],     // Send Count
             MPI_BYTE,                      // Send Type
-            image->rawdata,                // Recv Buffer
-            bytes_to_transfer,             // Recv Counts
+            image_data,                    // Recv Buffer
+            transfer_size,                 // Recv Counts
             displacements,                 // Recv Displacements
             MPI_BYTE,                      // Recv Type
             0,                             // Root
             MPI_COMM_WORLD);               // Communicator
 
-
-    //////////////////////////////////////////////
-    // TODO: implement time measurement to here //
-    //////////////////////////////////////////////
-    double spentTime = 0.0f;
-    printf("Time spent: %.3f seconds\n", spentTime);
+    freeImage(my_image);
 
 
-    if ( world_rank == 0) {
+    /////////////////////////////
+    // End of time measurement //
+    /////////////////////////////
+    double spent_time = MPI_Wtime() - start_time;
+    if(world_rank == 0) printf("Time spent: %.3f seconds\n", spent_time);
+
+
+    //////////////////////////////////
+    // Save image, end MPI and exit //
+    //////////////////////////////////
+    if(world_rank == 0){
         //Write the image back to disk
-        if (saveImage(image, options->output) < 1) {
+        if(saveImage(image, options->output) < 1){
             fprintf(stderr, "Could not save output to '%s'!\n", options->output);
             freeImage(image);
             abort();
@@ -253,9 +281,7 @@ int main(int argc, char **argv) {
 graceful_exit:
     options->ret = 0;
 error_exit:
-    if (options->input != NULL)
-        free(options->input);
-    if (options->output != NULL)
-        free(options->output);
+    if(options->input != NULL) free(options->input);
+    if(options->output != NULL) free(options->output);
     return options->ret;
 };
