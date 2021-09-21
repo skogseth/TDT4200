@@ -138,9 +138,9 @@ int main(int argc, char** argv) {
 
 
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Allocate room for local image slice, and scatter core image (not including halo) //
-    /////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    // Find border rows and allocate room for local image //
+    ////////////////////////////////////////////////////////
     int num_border_rows = (kernelDims[options->kernelIndex] - 1 ) / 2;
     int my_border_rows;
     // If process is either the first or last it needs one border row, otherwise it needs 2 (also, only one process -> no border rows)
@@ -153,6 +153,11 @@ int main(int argc, char** argv) {
     // local image slice: if root -> point at first pixel, if not -> point at second row (first core row)
     pixel* my_image_slice = (world_rank == 0) ? my_image->rawdata : my_image->rawdata + num_border_rows * image->width;
 
+
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Scatter full image to local core image (local image not including halo) //
+    /////////////////////////////////////////////////////////////////////////////
     MPI_Scatterv(image_data,               // Send Buffer
             transfer_size,                 // Send Counts
             displacements,                 // Displacements
@@ -165,37 +170,21 @@ int main(int argc, char** argv) {
 
 
 
-    //////////////////////////////////////////////////////////////////////////////////
-    // Taking a break to print information about the rows allocated to each process //
-    //////////////////////////////////////////////////////////////////////////////////
-    MPI_Barrier(MPI_COMM_WORLD);
-    if(world_rank == 0){
-        printf("Total rows: %d\n", image->height);
-        printf("Core rows (border rows) => rows\n");
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    wait(100);
-    MPI_Barrier(MPI_COMM_WORLD);
-    printf("Process %d: %d (%d) ==> %d\n", world_rank, my_image_height, my_border_rows, my_image->height);
-    MPI_Barrier(MPI_COMM_WORLD);
-    ///////////////////////////////////////////////////////////////////////////////////////////
-
-
-
     ///////////////////////////////////
     // Beginning of time measurement //
     ///////////////////////////////////
     double start_time = MPI_Wtime();
 
 
-    /////////////////
-    // Computation //
-    /////////////////
+
+    /////////////////////
+    // Applying kernel //
+    /////////////////////
     image_t* process_image = newImage(image->width, my_image->height);
 
     // Define pointers that point to exchange rows
-    pixel* upper_personal_row;
-    pixel* lower_personal_row;
+    pixel* upper_core_row;
+    pixel* lower_core_row;
     pixel* upper_border_row;
     pixel* lower_border_row;
 
@@ -208,15 +197,15 @@ int main(int argc, char** argv) {
         // Border exchange -  0 marks exchanging up, 1 marks exchanging down
         req_ptr = requests;
         if(world_rank != 0){
-            upper_personal_row = my_image->rawdata + num_border_rows * image->width;
+            upper_core_row = my_image->rawdata + num_border_rows * image->width;
             upper_border_row = my_image->rawdata;
-            MPI_Isend(upper_personal_row, exchange_size, MPI_BYTE, world_rank-1, world_rank, MPI_COMM_WORLD, req_ptr++);
+            MPI_Isend(upper_core_row, exchange_size, MPI_BYTE, world_rank-1, world_rank, MPI_COMM_WORLD, req_ptr++);
             MPI_Irecv(upper_border_row, exchange_size, MPI_BYTE, world_rank-1, world_rank-1, MPI_COMM_WORLD, req_ptr++);
         }
         if(world_rank != world_size-1){
-            lower_personal_row = my_image->rawdata + my_image->height * image->width - 2 * num_border_rows * image->width;
+            lower_core_row = my_image->rawdata + my_image->height * image->width - 2 * num_border_rows * image->width;
             lower_border_row = my_image->rawdata + my_image->height * image->width - num_border_rows * image->width;
-            MPI_Isend(lower_personal_row, exchange_size, MPI_BYTE, world_rank+1, world_rank, MPI_COMM_WORLD, req_ptr++);
+            MPI_Isend(lower_core_row, exchange_size, MPI_BYTE, world_rank+1, world_rank, MPI_COMM_WORLD, req_ptr++);
             MPI_Irecv(lower_border_row, exchange_size, MPI_BYTE, world_rank+1, world_rank+1, MPI_COMM_WORLD, req_ptr++);
         }
         for(int i = 0; i < num_exchanges; i++) MPI_Wait(&requests[i], MPI_STATUS_IGNORE);
@@ -242,6 +231,7 @@ int main(int argc, char** argv) {
     freeImage(process_image);
 
 
+
     /////////////////////////////////////////
     // Gather image data from all processes//
     /////////////////////////////////////////
@@ -258,11 +248,13 @@ int main(int argc, char** argv) {
     freeImage(my_image);
 
 
+
     /////////////////////////////
     // End of time measurement //
     /////////////////////////////
     double spent_time = MPI_Wtime() - start_time;
     if(world_rank == 0) printf("Time spent: %.3f seconds\n", spent_time);
+
 
 
     //////////////////////////////////
