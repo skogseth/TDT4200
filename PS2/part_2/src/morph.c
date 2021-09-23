@@ -13,8 +13,7 @@
 #include <sys/time.h>
 #define WALLTIME(t) ((double)(t).tv_sec + 1e-6 * (double)(t).tv_usec)
 
-double CLAMP(double value, double low, double high)
-{
+double CLAMP(double value, double low, double high){
     return (value < low) ? low : ((value > high) ? high : value);
 }
 
@@ -24,7 +23,7 @@ double CLAMP(double value, double low, double high)
 //--------------------------------------------------------------------------
 //------------------------imgRead-------------------------------------------
 //--------------------------------------------------------------------------
-void imgRead(const char *filename, pixel ** map, int *imgW, int *imgH) {
+void imgRead(const char *filename, pixel **map, int *imgW, int *imgH){
     stbi_set_flip_vertically_on_load(true);
 
     unsigned char *pixelMap;
@@ -46,7 +45,7 @@ void imgRead(const char *filename, pixel ** map, int *imgW, int *imgH) {
 //--------------------------------------------------------------------------
 //------------------------imgWrite-------------------------------------------
 //--------------------------------------------------------------------------
-void imgWrite(const char *filename, pixel * map, int imgW, int imgH){
+void imgWrite(const char *filename, pixel *map, int imgW, int imgH){
     if(strlen(filename) < 1) {
         printf("The output file name cannot be empty\n");
         exit(1);
@@ -62,29 +61,20 @@ void imgWrite(const char *filename, pixel * map, int imgW, int imgH){
 //--------------------------------------------------------------------------------------------------
 //--------------------------line interpolating function---------------------------------------------
 //--------------------------------------------------------------------------------------------------
-void simpleLineInterpolate(const SimpleFeatureLine *sourceLines,
-        const SimpleFeatureLine *destLines,
-        SimpleFeatureLine **morphLines, int numLines,
-        float t) {
-    SimpleFeatureLine *interLines =
-        malloc(sizeof(SimpleFeatureLine) * (numLines));
+void simpleLineInterpolate(const SimpleFeatureLine *sourceLines, const SimpleFeatureLine *destLines, SimpleFeatureLine **morphLines, int numLines, float t){
+    SimpleFeatureLine *interLines = malloc(sizeof(SimpleFeatureLine) * (numLines));
 
     for (int i = 0; i < numLines; i++) {
-        interLines[i].startPoint.x = (1 - t) * (sourceLines[i].startPoint.x) +
-            t * (destLines[i].startPoint.x);
-        interLines[i].startPoint.y = (1 - t) * (sourceLines[i].startPoint.y) +
-            t * (destLines[i].startPoint.y);
-        interLines[i].endPoint.x =
-            (1 - t) * (sourceLines[i].endPoint.x) + t * (destLines[i].endPoint.x);
-        interLines[i].endPoint.y =
-            (1 - t) * (sourceLines[i].endPoint.y) + t * (destLines[i].endPoint.y);
+        interLines[i].startPoint.x = (1 - t) * (sourceLines[i].startPoint.x) + t * (destLines[i].startPoint.x);
+        interLines[i].startPoint.y = (1 - t) * (sourceLines[i].startPoint.y) + t * (destLines[i].startPoint.y);
+        interLines[i].endPoint.x = (1 - t) * (sourceLines[i].endPoint.x) + t * (destLines[i].endPoint.x);
+        interLines[i].endPoint.y = (1 - t) * (sourceLines[i].endPoint.y) + t * (destLines[i].endPoint.y);
     }
 
     *morphLines = interLines;
 }
 
-SimpleFeatureLine **loadLines(int *numLines, const char *name)
-{
+SimpleFeatureLine **loadLines(int *numLines, const char *name){
     FILE *f = fopen(name, "r");
     if (f == NULL) {
         printf("Error opening file!\n");
@@ -97,12 +87,11 @@ SimpleFeatureLine **loadLines(int *numLines, const char *name)
 
     size_t lineArraySize = sizeof(SimpleFeatureLine) * (*numLines);
 
-    SimpleFeatureLine *linesSrc = (SimpleFeatureLine *) malloc(lineArraySize);
+    SimpleFeatureLine *linesSrc = (SimpleFeatureLine *)malloc(lineArraySize);
 
-    SimpleFeatureLine *linesDst = (SimpleFeatureLine *) malloc(lineArraySize);
+    SimpleFeatureLine *linesDst = (SimpleFeatureLine *)malloc(lineArraySize);
 
-    SimpleFeatureLine **pairs =
-        (SimpleFeatureLine **)malloc(sizeof(SimpleFeatureLine *) * 2);
+    SimpleFeatureLine **pairs = (SimpleFeatureLine **)malloc(sizeof(SimpleFeatureLine *) * 2);
 
     pairs[0] = linesSrc;
     pairs[1] = linesDst;
@@ -113,9 +102,7 @@ SimpleFeatureLine **loadLines(int *numLines, const char *name)
 
         int idx = i / 2;
 
-        fscanf(f, "%lf,%lf,%lf,%lf[^\n]", &(which[idx].startPoint.x),
-                &(which[idx].startPoint.y), &(which[idx].endPoint.x),
-                &(which[idx].endPoint.y));
+        fscanf(f, "%lf,%lf,%lf,%lf[^\n]", &(which[idx].startPoint.x), &(which[idx].startPoint.y), &(which[idx].endPoint.x), &(which[idx].endPoint.y));
 
         c = getc(f);
     }
@@ -137,10 +124,7 @@ srcLines = given line in the source image
 p, a, b = parameters of the weight function
 output:
 src = the corresponding point */
-void warp(const SimplePoint* interPt, const SimpleFeatureLine* interLines,
-        const SimpleFeatureLine* sourceLines, const int sourceLinesSize,
-        float p, float a, float b, SimplePoint* src)
-{
+void warp(const SimplePoint* interPt, const SimpleFeatureLine* interLines, const SimpleFeatureLine* sourceLines, const int sourceLinesSize, float p, float a, float b, SimplePoint* src){
     int i;
     float interLength, srcLength;
     float weight, weightSum, dist;
@@ -174,13 +158,13 @@ void warp(const SimplePoint* interPt, const SimpleFeatureLine* interLines,
         Y = sourceLines[i].startPoint.y + u * pq.y - v * pq.x / srcLength;
 
         // the distance from the corresponding point to the line P'Q'
-        if (u < 0)
+        if (u < 0){
             dist = sqrt(pd.x * pd.x + pd.y * pd.y);
-        else if (u > 1) {
+        } else if (u > 1) {
             qd.x = interPt->x - interLines[i].endPoint.x;
             qd.y = interPt->y - interLines[i].endPoint.y;
             dist = sqrt(qd.x * qd.x + qd.y * qd.y);
-        }else{
+        } else {
             dist = fabsf(v);
         }
 
@@ -197,8 +181,7 @@ void warp(const SimplePoint* interPt, const SimpleFeatureLine* interLines,
 //--------------------------------------------------------------------------------------------------
 //--------------------------bilinear interpolation--------------------------------------------------
 //--------------------------------------------------------------------------------------------------
-void bilinear(pixel* Im, float row, float col, pixel* pix)
-{
+void bilinear(pixel* Im, float row, float col, pixel* pix){
     int cm, cn, fm, fn;
     double alpha, beta;
 
@@ -228,10 +211,7 @@ void bilinear(pixel* Im, float row, float col, pixel* pix)
 //--------------------------------------------------------------------------------------------------
 //--------------------------color interpolation function--------------------------------------------
 //--------------------------------------------------------------------------------------------------
-void ColorInterPolate(const SimplePoint* Src_P,
-        const SimplePoint* Dest_P, float t,
-        pixel* imgSrc, pixel* imgDest, pixel* rgb)
-{
+void ColorInterPolate(const SimplePoint* Src_P, const SimplePoint* Dest_P, float t, pixel* imgSrc, pixel* imgDest, pixel* rgb){
     pixel srcColor, destColor;
 
     bilinear(imgSrc, Src_P->y, Src_P->x, &srcColor);
@@ -290,8 +270,8 @@ void morphKernel(const SimpleFeatureLine *hSrcLines,
     }
 }
 
-void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLines, int numLines, float t) {
-    
+void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLines, int numLines, float t){
+
     // TODO: Get world rank and world size
     int world_size = 1;
     int world_rank = 0;
@@ -308,7 +288,7 @@ void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLi
     ////////////////////////////////
     struct timeval start, end;
     gettimeofday(&start, NULL);
-    morphKernel( hSrcLines,
+    morphKernel(hSrcLines,
             hDstLines,
             hMorphLines,
             hSrcImgMap,
@@ -335,16 +315,15 @@ void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLi
 }
 
 //------------main function----------------------------
-int main(int argc,char *argv[]){
+int main(int argc, char *argv[]){
 
     //////////////////////////////////
     // MPI INITIALIZATION AND SETUP //
     //////////////////////////////////
     MPI_Init(&argc, &argv);
     int world_size, world_rank;
-    // TODO: Get world size and world rank
-    world_rank = 0;
-    world_size = 1;
+    world_size = MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    world_rank = MPI_Comm_size(MPI_COMM_WORLD, &world_rank);
 
     /////////////////////////////////////
     // ARGUMENT PARSING - DO NOT TOUCH //
@@ -352,7 +331,7 @@ int main(int argc,char *argv[]){
     int steps;
     const char *stepsStr;
 
-    if( world_rank == 0) {
+    if (world_rank == 0) {
         switch(argc){
             case 6:
                 inputFileOrig = argv[1];
@@ -401,8 +380,8 @@ int main(int argc,char *argv[]){
     MPI_Bcast(&a, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&b, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-    // TODO: Broadcast the remaining arguments 
-    
+    // TODO: Broadcast the remaining arguments
+
     printf("[%d] Has received all arguments\n", world_rank);
     printf("[%d] Knows that the dimensions of the images are %d x %d\n", world_rank, imgWidthOrig, imgHeightOrig);
     printf("[%d] Knows that the morph consists of %d steps\n", world_rank, steps);
@@ -415,7 +394,7 @@ int main(int argc,char *argv[]){
     SimpleFeatureLine *hSrcLines;
     SimpleFeatureLine *hDstLines;
 
-    if(world_rank == 0) {
+    if (world_rank == 0) {
          SimpleFeatureLine **hLinePairs = loadLines(&numLines, linePath);
          hSrcLines = hLinePairs[0];
          hDstLines = hLinePairs[1];
@@ -434,7 +413,7 @@ int main(int argc,char *argv[]){
     printf("[%d] Has received %d line pairs\n", world_rank, numLines);
 
     ////////////////////////////////
-    // TODO: Image Morphing 
+    // TODO: Image Morphing
     ////////////////////////////////
 
     // TODO: Broadcast image maps
@@ -447,7 +426,7 @@ int main(int argc,char *argv[]){
 
     float stepSize = 1.0/steps;
     for (int i = 0; i < steps+1; i++) {
-        t = stepSize*i;
+        t = stepSize * i;
         doMorph(hSrcLines, hDstLines, numLines, t);
     }
 
@@ -461,4 +440,3 @@ int main(int argc,char *argv[]){
     MPI_Finalize();
     return 0;
 }
-
