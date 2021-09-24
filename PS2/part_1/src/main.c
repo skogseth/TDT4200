@@ -194,9 +194,9 @@ int main(int argc, char **argv) {
 
 
 
-    /////////////////////
-    // Applying kernel //
-    /////////////////////
+    //////////////////////////////////////////////////////
+    // Applying kernel to image a given number of times //
+    //////////////////////////////////////////////////////
     image_t *process_image = newImage(image->width, my_image->height);
 
     // Define pointers that point to exchange rows in local image.
@@ -212,18 +212,26 @@ int main(int argc, char **argv) {
 
     // Run border exchange and apply kernel for a given number of iterations
     for (unsigned int i = 0; i < options->iterations; i++) {
-        // Border exchange - all messages are tagged with senders rank
+        /////////////////////
+        // Border exchange //
+        /////////////////////
+
+        // All messages are tagged with senders rank
         // All sends/recvs are non-blocking, to avoid deadlocks and uneccesary waiting
+
+        // Request pointer set to point to first request slot
         req_ptr = requests;
+
+        // Exchange rows with upper neighbouring image slice (not needed for root process)
         if (world_rank != 0) {
-            // Exchange rows with upper neighbouring image slice (not needed for root process)
             upper_core_row = my_image->rawdata + num_border_rows * image->width;
             upper_border_row = my_image->rawdata;
             MPI_Isend(upper_core_row, exchange_size, MPI_BYTE, world_rank-1, world_rank, MPI_COMM_WORLD, req_ptr++);
             MPI_Irecv(upper_border_row, exchange_size, MPI_BYTE, world_rank-1, world_rank-1, MPI_COMM_WORLD, req_ptr++);
         }
+
+        // Exchange rows with lower neighbouring image slice (not needed for last process)
         if (world_rank != world_size-1) {
-            // Exchange rows with lower neighbouring image slice (not needed for last process)
             lower_core_row = my_image->rawdata + my_image->height * image->width - 2 * num_border_rows * image->width;
             lower_border_row = my_image->rawdata + my_image->height * image->width - num_border_rows * image->width;
             MPI_Isend(lower_core_row, exchange_size, MPI_BYTE, world_rank+1, world_rank, MPI_COMM_WORLD, req_ptr++);
@@ -239,7 +247,10 @@ int main(int argc, char **argv) {
         // However, if I remove this the output __sometimes__ have symptoms of bad border exchange.
         MPI_Barrier(MPI_COMM_WORLD);
 
-        // Apply Kernel
+
+        /////////////////////
+        // Applying kernel //
+        /////////////////////
         applyKernel(process_image->data,
                 my_image->data,
                 my_image->width,
