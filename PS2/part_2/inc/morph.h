@@ -16,6 +16,8 @@ int imgWidthOrig = 0;
 int imgHeightOrig = 0;
 int imgWidthDest = 0;
 int imgHeightDest = 0;
+int localImgWidth = 0;
+int localImgHeight = 0;
 
 //the pixel
 typedef struct pix{
@@ -26,16 +28,16 @@ typedef struct SimplePoint_struct {
         double x, y;
 } SimplePoint;
 
-
 typedef struct SimpleFeatureLine_struct {
       SimplePoint startPoint;
       SimplePoint endPoint;
 } SimpleFeatureLine;
 
 //The pixmap is the pointer array which contains the pointers that point at the pixels
-pixel * hSrcImgMap;
-pixel * hDstImgMap;
-pixel * hMorphMap;
+pixel *hSrcImgMap;
+pixel *hDstImgMap;
+pixel *hMorphMap;
+pixel *morphMap;
 
 //The name of input and output files
 const char *inputFileOrig;
@@ -45,7 +47,7 @@ const char *outputFile;
 const char *tempFile;
 const char *linePath;
 //the parameter of the weight
-const char* pStr, *aStr, *bStr, *tStr;
+const char *pStr, *aStr, *bStr, *tStr;
 float p = 0;
 float a = 1;
 float b = 2;
