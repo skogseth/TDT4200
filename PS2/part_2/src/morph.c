@@ -460,7 +460,6 @@ int main(int argc, char *argv[]){
     ////////////////////////////////
     // Find local image partition //
     ////////////////////////////////
-
     localImgWidth = imgWidthOrig;
     localImgHeight = imgHeightOrig / world_size;
     if (localImgHeight % world_size != 0) {
