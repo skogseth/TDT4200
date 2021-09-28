@@ -1,0 +1,5 @@
+Connect to servers:
+ssh username@snotra.idi.ntnu.no
+
+Exit ssh-session
+ctrl + d
