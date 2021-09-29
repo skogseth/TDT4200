@@ -302,6 +302,7 @@ int main(int argc, char **argv) {
     This seems, in my opinion, to be the best way to measure the time the program takes:
     All processes are aligned at the start, root begins timing, everyone starts. When everyone is done root stops timing.
     A bit too much overhead, but what can you do. I allocate space for the variable before timing, hopefully that helps a bit.
+    Results from timing can be found at the bottom.
     */
 
 
@@ -329,3 +330,29 @@ error_exit:
     if (options->output != NULL) free(options->output);
     return options->ret;
 };
+
+
+
+/*
+Results from timing:
+Running 10 iterations on kernel Laplacian 1 (default)
+1 process: 7.817
+2 processes: 3.936s ==> speedup relative 1 = 7.817s / 3.936s = 1.986
+4 processes: 2.095s ==> speedup relative 2 = 3.936s / 2.095s = 1.879
+8 processes: 2.059s ==> speedup relative 4 = 2.095s / 2.059s = 1.017
+
+As we see the speedup when doubling the number of processes from 1 to 2 is very close to 2 (1.986)
+and the speedup falls a bit down when going from 2 to 4 (1.879). This is expected due to overhead.
+When going from 4 to 8 processes there is almost no speedup on the computer this code was run on,
+because the computer only has 4 cores. If the code had been run on a computer with 8 or more cores
+we would expect to see a speedup somewhat lower than the one from 2 to 4.
+
+The decreasing speedup is caused by an increasing amount of overhead for the communication.
+More processes means more border exchanges, amongst other things, which means more communication
+as well as a higher likelyhood of idle time waiting for all processes to finish their exchange.
+
+It is however interesting that there is __some__ speedup from 4 to 8 processes. Going from 4 to 8
+processes introduces more overhead, and one should then expect at the very least a slightly slower
+runtime for 8 than for 4. The speedup, I believe, is likely caused by the location of data being
+more convenient for calculations due to smaller arrays per process.
+*/

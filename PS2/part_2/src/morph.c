@@ -237,8 +237,7 @@ void morphKernel(const SimpleFeatureLine *hSrcLines,
         int numLines,
         float t)
 {
-    int world_size, world_rank;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     for (int i = 0; i < localImgHeight; i++) {
@@ -271,15 +270,14 @@ void morphKernel(const SimpleFeatureLine *hSrcLines,
 }
 
 void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLines, int numLines, float t){
-    int world_size, world_rank;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
 
     ///////////////////////////////
     // CREATE INTERPOLATED LINES //
     ///////////////////////////////
-    SimpleFeatureLine* hMorphLines = NULL;
+    SimpleFeatureLine *hMorphLines = NULL;
     simpleLineInterpolate(hSrcLines, hDstLines, &hMorphLines, numLines, t);
 
 
@@ -316,7 +314,7 @@ void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLi
     //////////////////////////////////
     // WRITE OUT THE FINISHED IMAGE //
     //////////////////////////////////
-
+    // Gather image at root
     MPI_Gather(hMorphMap,
             localImgWidth*localImgHeight*sizeof(pixel),
             MPI_BYTE,
@@ -327,6 +325,7 @@ void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLi
             MPI_COMM_WORLD
     );
 
+    // Root writes image to file
     if (world_rank == 0) {
         char rootFile[50] = {0};
         sprintf(rootFile, "%s%.5f.png", outputFile, t);
@@ -340,7 +339,7 @@ void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLi
 int main(int argc, char *argv[]){
 
     //////////////////////////////////
-    // MPI INITIALIZATION AND SETUP //
+    // MPI initialization and setup //
     //////////////////////////////////
     MPI_Init(&argc, &argv);
     int world_size, world_rank;
@@ -399,12 +398,11 @@ int main(int argc, char *argv[]){
             exit(1);
          }
     }
-    /////////////////////////////
-    // END OF ARGUMENT PARSING //
-    /////////////////////////////
 
 
-    // Broadcasting arguments
+    /////////////////////////////
+    // Broadcasting arguments //
+    /////////////////////////////
     MPI_Bcast(&p, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&a, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&b, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -431,7 +429,6 @@ int main(int argc, char *argv[]){
     /////////////////////
     // Broadcast lines //
     /////////////////////
-
     MPI_Bcast(&numLines, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (world_rank != 0) {
         hSrcLines = (SimpleFeatureLine *)malloc(sizeof(SimpleFeatureLine) * numLines);
@@ -445,7 +442,6 @@ int main(int argc, char *argv[]){
     //////////////////////
     // Broadcast images //
     //////////////////////
-
     MPI_Bcast(&imgWidthOrig, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&imgHeightOrig, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (world_rank != 0) {
@@ -492,7 +488,7 @@ int main(int argc, char *argv[]){
     free(hDstImgMap);
     if (world_rank == 0) free(morphMap);
     free(hMorphMap);
-
+    
     MPI_Finalize();
     return 0;
 }
