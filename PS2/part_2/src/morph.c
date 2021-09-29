@@ -20,6 +20,10 @@ double CLAMP(double value, double low, double high){
 #define true 1
 #define false 0
 
+int localImgWidth = 0;
+int localImgHeight = 0;
+pixel *morphMap;
+
 //--------------------------------------------------------------------------
 //------------------------imgRead-------------------------------------------
 //--------------------------------------------------------------------------
@@ -488,7 +492,7 @@ int main(int argc, char *argv[]){
     free(hDstImgMap);
     if (world_rank == 0) free(morphMap);
     free(hMorphMap);
-    
+
     MPI_Finalize();
     return 0;
 }

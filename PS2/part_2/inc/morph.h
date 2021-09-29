@@ -16,8 +16,6 @@ int imgWidthOrig = 0;
 int imgHeightOrig = 0;
 int imgWidthDest = 0;
 int imgHeightDest = 0;
-int localImgWidth = 0;
-int localImgHeight = 0;
 
 //the pixel
 typedef struct pix{
@@ -37,7 +35,6 @@ typedef struct SimpleFeatureLine_struct {
 pixel *hSrcImgMap;
 pixel *hDstImgMap;
 pixel *hMorphMap;
-pixel *morphMap;
 
 //The name of input and output files
 const char *inputFileOrig;
