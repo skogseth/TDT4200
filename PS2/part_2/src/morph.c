@@ -241,17 +241,19 @@ void morphKernel(const SimpleFeatureLine *hSrcLines,
         int numLines,
         float t)
 {
+    // Get world rank
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
+    // Iterate over local image partition
     for (int i = 0; i < localImgHeight; i++) {
         for (int j = 0; j < localImgWidth; j++) {
             pixel interColor;
             SimplePoint dest;
             SimplePoint src;
             SimplePoint q;
-            q.x = j;
-            q.y = i + world_rank * localImgHeight;
+            q.x = j; // global x position
+            q.y = i + world_rank * localImgHeight; // global y position
 
             // warping
             warp(&q, hMorphLines, hSrcLines, numLines, p, a, b, &src);
@@ -274,19 +276,20 @@ void morphKernel(const SimpleFeatureLine *hSrcLines,
 }
 
 void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLines, int numLines, float t){
+    // Get world rank
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
 
     ///////////////////////////////
-    // CREATE INTERPOLATED LINES //
+    // Create interpolated lines //
     ///////////////////////////////
     SimpleFeatureLine *hMorphLines = NULL;
     simpleLineInterpolate(hSrcLines, hDstLines, &hMorphLines, numLines, t);
 
 
     ////////////////////////////////
-    // PERFORM THE MORPHING STAGE //
+    // Perform the morphing stage //
     ////////////////////////////////
     struct timeval start, end;
     MPI_Barrier(MPI_COMM_WORLD);
@@ -315,9 +318,9 @@ void doMorph(const SimpleFeatureLine *hSrcLines, const SimpleFeatureLine *hDstLi
     */
 
 
-    //////////////////////////////////
-    // WRITE OUT THE FINISHED IMAGE //
-    //////////////////////////////////
+    /////////////////////////////
+    // Write the image to file //
+    /////////////////////////////
     // Gather image at root
     MPI_Gather(hMorphMap,
             localImgWidth*localImgHeight*sizeof(pixel),
