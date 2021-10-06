@@ -10,7 +10,7 @@
 int world_size, world_rank;
 
 
-void print_matrix_d(double* matrix, int rows, int cols){
+void print_matrix_d(double *matrix, int rows, int cols){
     printf("{\n");
     for (int i = 0; i < rows; i++) {
         printf("\t{");
