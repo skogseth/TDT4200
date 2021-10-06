@@ -1,6 +1,8 @@
 CFLAGS = -Wall -Wshadow -O3 -g #-march=native
-LDLIBS = -lm -lopenblas -lcblas
+LDLIBS = -lm -lopenblas -L/usr/local/opt/openblas/lib
+CC=gcc
 all: check example1 example2 example3 example4
+
 
 sigmoid: CFLAGS += -Dgenann_act=genann_act_sigmoid_cached
 sigmoid: all
