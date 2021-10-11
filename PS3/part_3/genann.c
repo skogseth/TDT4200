@@ -220,70 +220,54 @@ double const *genann_run(genann const *ann, double const *inputs) {
      * output, for consistency. This way the first layer isn't a special case. */
     memcpy(ann->output, inputs, sizeof(double) * ann->inputs);
 
-    int h, j, k;
-
-    if (!ann->hidden_layers) {
-        double *ret = o;
-        for (j = 0; j < ann->outputs; ++j) {
-            double sum = *w++ * -1.0;
-            for (k = 0; k < ann->inputs; ++k) {
-                sum += *w++ * i[k];
-            }
-            *o++ = genann_act_output(ann, sum);
-        }
-
-        return ret;
-    }
-
-    /* Figure input layer */
-    for (j = 0; j < ann->hidden; ++j) {
-        double sum = *w++ * -1.0;
-        for (k = 0; k < ann->inputs; ++k) {
-            sum += *w++ * i[k];
-        }
-        *o++ = genann_act_hidden(ann, sum);
-    }
-
-    i += ann->inputs;
-
     //These are the dimensions of the square weight matrix
-    int m = ann->hidden;
-    int n = ann->hidden;
+    int m, n;
 
     //In addition to n edge weights, each neuron has one value (bias) associated with it.
     //This value is *also* saved in w, meaning the complete matrix has (n+1)*m elements.
     //This value is always multiplied by -1, which we make room for in a copy of the input vector.
-    double* temp_i = malloc( (ann->hidden+1) * sizeof(double) );
-    double* sums = calloc( (ann->hidden+1),  sizeof(double) );
+    double* temp_i = malloc( ( (int)fmax(ann->hidden, ann->inputs) + 1 ) * sizeof(double) );
+    *temp_i = -1.0;
 
-    for (h = 1; h < ann->hidden_layers; ++h) {
-        //Copyyng the input vector and setting the first value to -1 as described above.
-        temp_i[0] = -1.0;
+    // Temporary sums needed for calculations
+    double* sums = calloc( (int)fmax(ann->hidden, ann->outputs), sizeof(double) );
+
+    // Pointer to return value and genann function
+    double *ret;
+    double (*f_ptr)(const struct genann *, double);
+
+    // Counting variables
+    int h, j;
+    for (h = 0; h <= ann->hidden_layers; ++h) {
+        if (h == ann->hidden_layers) ret = o;
+
+        // Find matrix dimensions
+        m = (h == ann->hidden_layers) ? ann->outputs : ann->hidden;
+        n = (h == 0) ? ann->inputs : ann->hidden;
+
         memcpy(temp_i+1, i, n*sizeof(double));
 
+        // sums (vector) = w (matrix) * temp_i (vector)
         cblas_dgemv(CblasRowMajor, CblasNoTrans, m, n+1, 1.0, w, n+1, temp_i, 1, 0.0, sums, 1);
-        for (j = 0; j < ann->hidden; ++j) o[j] = genann_act_hidden(ann, sums[j]);
 
-        w += (n + 1) * m;
+        f_ptr = (h == ann->hidden_layers) ? &genann_act_output : &genann_act_hidden;
+        for (j = 0; j < m; ++j) o[j] = f_ptr(ann, sums[j]);
+
+        // Move pointers for w, o and i past what was written
+        w += m * (n + 1);
         o += m;
-        i += m;
+        i += n;
     }
-    free(temp_i);
-    free(sums);
 
-    double const *ret = o;
-    /* Figure output layer. */
-    for (j = 0; j < ann->outputs; ++j) {
-        double sum = *w++ * -1.0;
-        for (k = 0; k < ann->hidden; ++k) {
-            sum += *w++ * i[k];
-        }
-        *o++ = genann_act_output(ann, sum);
-    }
 
     /* Sanity check that we used all weights and wrote all outputs. */
     assert(w - ann->weight == ann->total_weights);
     assert(o - ann->output == ann->total_neurons);
+
+    /* Free calculation arrays */
+    free(temp_i);
+    free(sums);
+
 
     return ret;
 }
@@ -295,7 +279,9 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
 
     int h, j;
 
-    {   /* First set the output layer deltas. */
+
+    /* First set the output layer deltas. */
+    {
         double const *o = ann->output + ann->inputs + ann->hidden * ann->hidden_layers; /* First output. */
         double *d = ann->delta + ann->hidden * ann->hidden_layers; /* First delta. */
         double const *t = desired_outputs; /* First desired output. */
@@ -356,13 +342,13 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         int m = ann->outputs;
         int n = ann->hidden_layers ? ann->hidden : ann->inputs;
 
-        /* Create extended i: i with -1 pushed in the front */
-        double i_ext[n+1];
-        *i_ext = -1.0;
-        memcpy(i_ext+1, i, n*sizeof(double));
+        /* Create temporary i: i with -1 pushed in the front */
+        double temp_i[n+1];
+        *temp_i = -1.0;
+        memcpy(temp_i+1, i, n*sizeof(double));
 
         /* Outer product of extended i and d, output w */
-        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_ext, 1, w, n+1);
+        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, temp_i, 1, w, n+1);
     }
 
 
@@ -382,13 +368,13 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         int m = ann->hidden;
         int n = (h == 0) ? ann->inputs : ann->hidden;
 
-        /* Create extended i: i with -1 pushed in the front */
-        double i_ext[n+1];
-        *i_ext = -1.0;
-        memcpy(i_ext+1, i, n*sizeof(double));
+        /* Create temporary i: i with -1 pushed in the front */
+        double temp_i[n+1];
+        *temp_i = -1.0;
+        memcpy(temp_i+1, i, n*sizeof(double));
 
         /* Outer product of extended i and d, output w */
-        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_ext, 1, w, n+1);
+        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, temp_i, 1, w, n+1);
     }
 
 }
