@@ -304,7 +304,7 @@ double const *genann_run(genann const *ann, double const *inputs) {
         */
         ////////////////////////////////////////////////////////////
 
-        cblas_dgemv(CblasRowMajor, CblasNoTrans, ann->hidden, ann->hidden+1, 1.0, w, ann->hidden+1, temp_i, 1, 0.0, sums, 1);
+        cblas_dgemv(CblasRowMajor, CblasNoTrans, m, n+1, 1.0, w, n+1, temp_i, 1, 0.0, sums, 1);
         for (j = 0; j < ann->hidden; ++j) o[j] = genann_act_hidden(ann, sums[j]);
 
         w += (n + 1) * m;
@@ -338,7 +338,8 @@ double const *genann_run(genann const *ann, double const *inputs) {
 
 void genann_train(genann const *ann, double const *inputs, double const *desired_outputs, double learning_rate) {
     /* To begin with, we must run the network forward. */
-    // [ HOTSPOT Before - 33.22 % (This is improved by speeding up genann_run) ]
+    // [ HOTSPOT Before - 33.22 % (This is improved by speeding up the hotspot in genann_run) ]
+    // [ HOTSPOT After part 1 - 17 % ]
     genann_run(ann, inputs);
 
     int h, j, k;
@@ -419,16 +420,18 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
 
         // TODO 2.a: Define the m and n dimension of the delta matrix
         // Hint: Look at the double for loop
-        int m = 0;
-        int n = 0;
+        int m = ann->hidden;
+        int n = (h == ann->hidden_layers-1) ? ann->outputs : ann->hidden;
 
-        //A temporary vector to store the propagated delta from the previuos layer.
+        //A temporary vector to store the propagated delta from the previous layer.
         double* delta = calloc(ann->hidden, sizeof(double));
 
         // TODO 2.b: Decompose and implement GEMV BLAS call for the code
         // Hint: Think about how ww is offset from its original address.
         // You will need pointer arithmetic for the BLAS call
         // HOTSPOT Before - 37.75 %
+        // HOTSPOT After part 1 - 46.81 %
+        /*
         for (j = 0; j < ann->hidden; ++j) {
             //We iterate up to the value ann->outputs if we are on the output layer,
             //h == ann->hidden_layers-1, and to ann->hidden otherwise.
@@ -443,6 +446,12 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
             //Calculate the actual new deltas for this layer
             d[j] = o[j] * (1.0-o[j]) * delta[j];
         }
+        */
+
+
+        cblas_dgemv(CblasRowMajor, CblasTrans, n, m, 1.0, ww+1, m+1, dd, 1, 0.0, delta, 1);
+        for (j = 0; j < m; ++j) d[j] = o[j] * (1.0-o[j]) * delta[j];
+
 
         free(delta);
 
@@ -498,9 +507,10 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
                 : 0);
 
 
-    /////////////////////////////////
-    // TODO: 3 (Optional) Optimize //
-    /////////////////////////////////
+        /////////////////////////////////
+        // TODO: 3 (Optional) Optimize //
+        /////////////////////////////////
+        // HOTSPOT After part 1 - 32.47 %
         for (j = 0; j < ann->hidden; ++j) {
             *w++ += *d * learning_rate * -1.0;
             for (k = 1; k < (h == 0 ? ann->inputs : ann->hidden) + 1; ++k) {
@@ -508,9 +518,9 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
             }
             ++d;
         }
-    /////////////////////////////////
-    // TODO 3 END               //
-    /////////////////////////////////
+        /////////////////////////////////
+        // TODO 3 END               //
+        /////////////////////////////////
     }
 
 }
