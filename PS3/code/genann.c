@@ -284,22 +284,28 @@ double const *genann_run(genann const *ann, double const *inputs) {
     //This value is *also* saved in w, meaning the complete matrix has (n+1)*m elements.
     //This value is always multiplied by -1, which we make room for in a copy of the input vector.
     double* temp_i = malloc( (ann->hidden+1) * sizeof(double) );
-    double* sums = calloc((ann->hidden+1),  sizeof(double));
+    double* sums = calloc( (ann->hidden+1),  sizeof(double) );
 
     for (h = 1; h < ann->hidden_layers; ++h) {
         //Copyyng the input vector and setting the first value to -1 as described above.
         temp_i[0] = -1.0;
         memcpy(temp_i+1, i, n*sizeof(double));
 
+        // HOTSPOT Part 1 Before - 23.89 %
         ////////////////////////////////////////////////////////////
         // Decompose and replace this double for loop with GEMV call
+        /*
         for (j = 0; j < ann->hidden; ++j) {
             for (k = 0; k < ann->hidden+1; ++k) {
                 sums[j] += w[k + j*(ann->hidden+1)] * temp_i[k];
             }
             o[j] = genann_act_hidden(ann, sums[j]);
         }
+        */
         ////////////////////////////////////////////////////////////
+
+        cblas_dgemv(CblasRowMajor, CblasNoTrans, ann->hidden, ann->hidden+1, 1.0, w, ann->hidden+1, temp_i, 1, 0.0, sums, 1);
+        for (j = 0; j < ann->hidden; ++j) o[j] = genann_act_hidden(ann, sums[j]);
 
         w += (n + 1) * m;
         o += m;
@@ -332,6 +338,7 @@ double const *genann_run(genann const *ann, double const *inputs) {
 
 void genann_train(genann const *ann, double const *inputs, double const *desired_outputs, double learning_rate) {
     /* To begin with, we must run the network forward. */
+    // [ HOTSPOT Before - 33.22 % (This is improved by speeding up genann_run) ]
     genann_run(ann, inputs);
 
     int h, j, k;
@@ -350,8 +357,7 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
 
 
         /* Set output layer deltas. */
-        if (genann_act_output == genann_act_linear ||
-                ann->activation_output == genann_act_linear) {
+        if (genann_act_output == genann_act_linear || ann->activation_output == genann_act_linear) {
             for (j = 0; j < ann->outputs; ++j) {
                 *d++ = *t++ - *o++;
             }
@@ -422,6 +428,7 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         // TODO 2.b: Decompose and implement GEMV BLAS call for the code
         // Hint: Think about how ww is offset from its original address.
         // You will need pointer arithmetic for the BLAS call
+        // HOTSPOT Before - 37.75 %
         for (j = 0; j < ann->hidden; ++j) {
             //We iterate up to the value ann->outputs if we are on the output layer,
             //h == ann->hidden_layers-1, and to ann->hidden otherwise.
