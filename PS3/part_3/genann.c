@@ -377,20 +377,17 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         /* Find first weight to this layer. */
         double *w = ann->weight + (h ? ((ann->inputs+1) * ann->hidden + (ann->hidden+1) * (ann->hidden) * (h-1)) : 0);
 
-
+        // Number of rows (m) and number of columns (n)
         int m = ann->hidden;
         int n = (h == 0) ? ann->inputs : ann->hidden;
-        /*
-        for (j = 0; j < m; ++j) {
-            for (k = 0; k < n+1; ++k) {
-                w[k + j*(n+1)] += learning_rate * d[j] * (k > 0 ? i[k-1] : -1.0);
-            }
-        }
-        */
-        double i_blas[n+1];
-        *i_blas = -1;
-        memcpy(i_blas+1, i, n*sizeof(double));
-        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_blas, 1, w, n+1);
+
+        // Create extended i: i with -1 pushed in the front
+        double i_ext[n+1];
+        *i_ext = -1.0;
+        memcpy(i_ext+1, i, n*sizeof(double));
+
+        // Outer product of extended i and d, output w
+        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_ext, 1, w, n+1);
     }
 
 }
