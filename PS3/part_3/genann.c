@@ -293,7 +293,7 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
     /* To begin with, we must run the network forward. */
     genann_run(ann, inputs);
 
-    int h, j, k;
+    int h, j;
 
     {   /* First set the output layer deltas. */
         double const *o = ann->output + ann->inputs + ann->hidden * ann->hidden_layers; /* First output. */
@@ -352,16 +352,17 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         /* Find first output in previous layer. */
         double const * const i = ann->output + (ann->hidden_layers ? (ann->inputs + (ann->hidden) * (ann->hidden_layers-1)) : 0);
 
-        /* Set output layer weights. */
-        for (j = 0; j < ann->outputs; ++j) {
-            *w++ += *d * learning_rate * -1.0;
-            for (k = 1; k < (ann->hidden_layers ? ann->hidden : ann->inputs) + 1; ++k) {
-                *w++ += *d * learning_rate * i[k-1];
-            }
-            ++d;
-        }
+        /* Number of rows (m) and number of columns (n) */
+        int m = ann->outputs;
+        int n = ann->hidden_layers ? ann->hidden : ann->inputs;
 
-        assert(w - ann->weight == ann->total_weights);
+        /* Create extended i: i with -1 pushed in the front */
+        double i_ext[n+1];
+        *i_ext = -1.0;
+        memcpy(i_ext+1, i, n*sizeof(double));
+
+        /* Outer product of extended i and d, output w */
+        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_ext, 1, w, n+1);
     }
 
 
@@ -377,16 +378,16 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         /* Find first weight to this layer. */
         double *w = ann->weight + (h ? ((ann->inputs+1) * ann->hidden + (ann->hidden+1) * (ann->hidden) * (h-1)) : 0);
 
-        // Number of rows (m) and number of columns (n)
+        /* Number of rows (m) and number of columns (n) */
         int m = ann->hidden;
         int n = (h == 0) ? ann->inputs : ann->hidden;
 
-        // Create extended i: i with -1 pushed in the front
+        /* Create extended i: i with -1 pushed in the front */
         double i_ext[n+1];
         *i_ext = -1.0;
         memcpy(i_ext+1, i, n*sizeof(double));
 
-        // Outer product of extended i and d, output w
+        /* Outer product of extended i and d, output w */
         cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_ext, 1, w, n+1);
     }
 
