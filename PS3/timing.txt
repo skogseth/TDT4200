@@ -1,0 +1,55 @@
+Before:
+
+selbu:~/Documents/TDT4200/PS3/code$ time ./example4
+GENANN example 4.
+Train an ANN on the IRIS dataset using backpropagation.
+Loading 150 data points from example/iris.data
+Training for 1000 loops over data.
+147/150 correct (98.0%).
+
+real	0m1.361s
+user	0m1.360s
+sys	0m0.001s
+
+
+===> 1.361 seconds
+
+
+
+
+
+After part 1:
+
+selbu:~/Documents/TDT4200/PS3/code$ time ./example4
+GENANN example 4.
+Train an ANN on the IRIS dataset using backpropagation.
+Loading 150 data points from example/iris.data
+Training for 1000 loops over data.
+147/150 correct (98.0%).
+
+real	0m1.021s
+user	0m1.088s
+sys	0m0.316s
+
+
+===> 1.021 seconds
+
+
+
+
+
+After part 2:
+
+selbu:~/Documents/TDT4200/PS3/code$ time ./example4
+GENANN example 4.
+Train an ANN on the IRIS dataset using backpropagation.
+Loading 150 data points from example/iris.data
+Training for 1000 loops over data.
+147/150 correct (98.0%).
+
+real	0m0.700s
+user	0m0.787s
+sys	0m0.296s
+
+
+===> 0.700 seconds

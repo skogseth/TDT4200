@@ -291,7 +291,7 @@ double const *genann_run(genann const *ann, double const *inputs) {
         temp_i[0] = -1.0;
         memcpy(temp_i+1, i, n*sizeof(double));
 
-        // HOTSPOT Part 1 Before - 23.89 %
+        // HOTSPOT Before - 23.89 %
         ////////////////////////////////////////////////////////////
         // Decompose and replace this double for loop with GEMV call
         /*
@@ -340,6 +340,7 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
     /* To begin with, we must run the network forward. */
     // [ HOTSPOT Before - 33.22 % (This is improved by speeding up the hotspot in genann_run) ]
     // [ HOTSPOT After part 1 - 17 % ]
+    // [ HOTSPOT After part 2 - 26.99 % ]
     genann_run(ann, inputs);
 
     int h, j, k;
@@ -511,6 +512,7 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         // TODO: 3 (Optional) Optimize //
         /////////////////////////////////
         // HOTSPOT After part 1 - 32.47 %
+        // HOTSPOT After part 2 - 52.77 %
         for (j = 0; j < ann->hidden; ++j) {
             *w++ += *d * learning_rate * -1.0;
             for (k = 1; k < (h == 0 ? ann->inputs : ann->hidden) + 1; ++k) {
