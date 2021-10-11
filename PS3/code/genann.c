@@ -208,10 +208,12 @@ void genann_free(genann *ann) {
     free(ann);
 }
 
-
 double const *genann_run(genann const *ann, double const *inputs) {
+    //Copy the weights into a more convenient variable
     double const *w = ann->weight;
+    //Initialize the output vector to point at the second layer of neurons
     double *o = ann->output + ann->inputs;
+    //Initialize the input vector to point at the first layer of neurons
     double const *i = ann->output;
 
     /* Copy the inputs to the scratch area, where we also store each neuron's
@@ -247,18 +249,48 @@ double const *genann_run(genann const *ann, double const *inputs) {
     /////////////////////////////////
     // TODO: 1 GEMV using BLAS   //
     /////////////////////////////////
-    
+
+
+    /*
+        Function description:
+
+        Activates each neuron in the input layer based on an input vector.
+        Propagates these activations through the network.
+
+        Variables:
+        ann:    The neural network
+                ann->weights: The edge and neuron weights for all layers
+                ann->inputs: The number of neurons in the input layer
+                ann->hidden: The number of neurons in the hidden layers
+                ann->hidden_layers: The number of hidden layers in the network
+                ann->output: The neuron activations for the whole network, incluing input, hidden and final layer.
+        inputs: The input vector
+        w:      Points at ann->weights
+        o:      Points at the layer of ann->output we are currently writing to
+        i:      Points to the layer of ann->output we are currently using as input.
+                i.e. the previous layer.
+
+        When the function returns, ann->output contains the final result.
+    */
+
+
     /* Comment from original source: Figure hidden layers, if any. */
+
+    //These are the dimensions of the square weight matrix
     int m = ann->hidden;
     int n = ann->hidden;
 
+    //In addition to n edge weights, each neuron has one value (bias) associated with it.
+    //This value is *also* saved in w, meaning the complete matrix has (n+1)*m elements.
+    //This value is always multiplied by -1, which we make room for in a copy of the input vector.
     double* temp_i = malloc( (ann->hidden+1) * sizeof(double) );
     double* sums = calloc((ann->hidden+1),  sizeof(double));
 
     for (h = 1; h < ann->hidden_layers; ++h) {
+        //Copyyng the input vector and setting the first value to -1 as described above.
         temp_i[0] = -1.0;
         memcpy(temp_i+1, i, n*sizeof(double));
-        
+
         ////////////////////////////////////////////////////////////
         // Decompose and replace this double for loop with GEMV call
         for (j = 0; j < ann->hidden; ++j) {
@@ -269,7 +301,7 @@ double const *genann_run(genann const *ann, double const *inputs) {
         }
         ////////////////////////////////////////////////////////////
 
-        w += (n + 1) * m; 
+        w += (n + 1) * m;
         o += m;
         i += m;
     }
@@ -279,7 +311,7 @@ double const *genann_run(genann const *ann, double const *inputs) {
     /////////////////////////////////
     // TODO 1 END               //
     /////////////////////////////////
-    
+
     double const *ret = o;
     /* Figure output layer. */
     for (j = 0; j < ann->outputs; ++j) {
@@ -304,8 +336,14 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
 
     int h, j, k;
 
-    /* First set the output layer deltas. */
-    {
+
+    /*
+    TDT4200 comment:  This lonesome curly bracket starts a new scope.
+                      That means no variables declared within will be
+                      visible outside outside it (that is, o, d and t).
+                      That also means the names can safely be re-used later.
+    */
+    {   /* First set the output layer deltas. */
         double const *o = ann->output + ann->inputs + ann->hidden * ann->hidden_layers; /* First output. */
         double *d = ann->delta + ann->hidden * ann->hidden_layers; /* First delta. */
         double const *t = desired_outputs; /* First desired output. */
@@ -344,20 +382,58 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         /////////////////////////////////
         // TODO: 2 GEMV using BLAS   //
         /////////////////////////////////
+
+        /*
+        Function description:
+        First, run an input through the network (see TODO 1).
+        Then, starting at the output layer and running backwards, determine the
+        deltas, the differences between the desired activation and actual
+        activation of each neuron.
+
+        Variables:
+        ann: The artificial neural network, same as in TODO 1. \
+             ann->delta: An area of memory as big as ann->output.
+                        When function returns, stores difference between desired
+                        output and actual output.
+        h:  The index of the current layer. Starting at the output layer and
+            going backwards.
+        o:  The actual output of the current layer, produced by TODO 1 function.
+        d:  The delta vector of the current layer, this is what we're calculating
+        dd: The delta vector of the *previous* layer, at index (h+1).
+        ww: The edge weights going from the previous layer and the current one.
+
+        Note 1: We're playing fast and loose with the term "difference" here.
+                It is not strictly a [desired]-[actual] calculation, but can be
+                conceptually thought of as a difference.
+        Note 2: We say "previous" layer meaning the layer involved in the
+                previous calculation. Because we are going backwards, this is,
+                strictly speaking, the "following" layer, which is what it is
+                called in the source code comments.
+        */
+
         // TODO 2.a: Define the m and n dimension of the delta matrix
+        // Hint: Look at the double for loop
         int m = 0;
         int n = 0;
 
+        //A temporary vector to store the propagated delta from the previuos layer.
         double* delta = calloc(ann->hidden, sizeof(double));
 
         // TODO 2.b: Decompose and implement GEMV BLAS call for the code
-        // Hint: Think about how ww is offset from its original address. 
+        // Hint: Think about how ww is offset from its original address.
         // You will need pointer arithmetic for the BLAS call
         for (j = 0; j < ann->hidden; ++j) {
+            //We iterate up to the value ann->outputs if we are on the output layer,
+            //h == ann->hidden_layers-1, and to ann->hidden otherwise.
             for (k = 0; k < (h == ann->hidden_layers-1 ? ann->outputs : ann->hidden); ++k) {
+                //Similarly to TODO 1, we add 1 to ann->hidden and j here as a
+                //consequence of how bias for each neuron is stored.
                 const int windex = k * (ann->hidden + 1) + (j + 1);
+                //Propagate the deltas from the previous layer backwards
+                //Using the weights between the layers and storing the result in "delta"
                 delta[j] += dd[k] * ww[windex];
             }
+            //Calculate the actual new deltas for this layer
             d[j] = o[j] * (1.0-o[j]) * delta[j];
         }
 
@@ -383,7 +459,7 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         double const * const i = ann->output + (ann->hidden_layers
                 ? (ann->inputs + (ann->hidden) * (ann->hidden_layers-1))
                 : 0);
-        
+
         /* Set output layer weights. */
         for (j = 0; j < ann->outputs; ++j) {
             *w++ += *d * learning_rate * -1.0;
@@ -441,5 +517,3 @@ void genann_write(genann const *ann, FILE *out) {
         fprintf(out, " %.20e", ann->weight[i]);
     }
 }
-
-
