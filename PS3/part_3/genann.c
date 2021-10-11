@@ -246,36 +246,6 @@ double const *genann_run(genann const *ann, double const *inputs) {
 
     i += ann->inputs;
 
-    /////////////////////////////////
-    // TODO: 1 GEMV using BLAS   //
-    /////////////////////////////////
-
-
-    /*
-        Function description:
-
-        Activates each neuron in the input layer based on an input vector.
-        Propagates these activations through the network.
-
-        Variables:
-        ann:    The neural network
-                ann->weights: The edge and neuron weights for all layers
-                ann->inputs: The number of neurons in the input layer
-                ann->hidden: The number of neurons in the hidden layers
-                ann->hidden_layers: The number of hidden layers in the network
-                ann->output: The neuron activations for the whole network, incluing input, hidden and final layer.
-        inputs: The input vector
-        w:      Points at ann->weights
-        o:      Points at the layer of ann->output we are currently writing to
-        i:      Points to the layer of ann->output we are currently using as input.
-                i.e. the previous layer.
-
-        When the function returns, ann->output contains the final result.
-    */
-
-
-    /* Comment from original source: Figure hidden layers, if any. */
-
     //These are the dimensions of the square weight matrix
     int m = ann->hidden;
     int n = ann->hidden;
@@ -291,19 +261,6 @@ double const *genann_run(genann const *ann, double const *inputs) {
         temp_i[0] = -1.0;
         memcpy(temp_i+1, i, n*sizeof(double));
 
-        // HOTSPOT Before - 23.89 %
-        ////////////////////////////////////////////////////////////
-        // Decompose and replace this double for loop with GEMV call
-        /*
-        for (j = 0; j < ann->hidden; ++j) {
-            for (k = 0; k < ann->hidden+1; ++k) {
-                sums[j] += w[k + j*(ann->hidden+1)] * temp_i[k];
-            }
-            o[j] = genann_act_hidden(ann, sums[j]);
-        }
-        */
-        ////////////////////////////////////////////////////////////
-
         cblas_dgemv(CblasRowMajor, CblasNoTrans, m, n+1, 1.0, w, n+1, temp_i, 1, 0.0, sums, 1);
         for (j = 0; j < ann->hidden; ++j) o[j] = genann_act_hidden(ann, sums[j]);
 
@@ -313,10 +270,6 @@ double const *genann_run(genann const *ann, double const *inputs) {
     }
     free(temp_i);
     free(sums);
-
-    /////////////////////////////////
-    // TODO 1 END               //
-    /////////////////////////////////
 
     double const *ret = o;
     /* Figure output layer. */
@@ -338,20 +291,10 @@ double const *genann_run(genann const *ann, double const *inputs) {
 
 void genann_train(genann const *ann, double const *inputs, double const *desired_outputs, double learning_rate) {
     /* To begin with, we must run the network forward. */
-    // [ HOTSPOT Before - 33.22 % (This is improved by speeding up the hotspot in genann_run) ]
-    // [ HOTSPOT After part 1 - 17 % ]
-    // [ HOTSPOT After part 2 - 26.99 % ]
     genann_run(ann, inputs);
 
     int h, j, k;
 
-
-    /*
-    TDT4200 comment:  This lonesome curly bracket starts a new scope.
-                      That means no variables declared within will be
-                      visible outside outside it (that is, o, d and t).
-                      That also means the names can safely be re-used later.
-    */
     {   /* First set the output layer deltas. */
         double const *o = ann->output + ann->inputs + ann->hidden * ann->hidden_layers; /* First output. */
         double *d = ann->delta + ann->hidden * ann->hidden_layers; /* First delta. */
@@ -375,7 +318,6 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
     /* Set hidden layer deltas, start on last layer and work backwards. */
     /* Note that loop is skipped in the case of hidden_layers == 0. */
     for (h = ann->hidden_layers - 1; h >= 0; --h) {
-
         /* Find first output and delta in this layer. */
         double const *o = ann->output + ann->inputs + (h * ann->hidden);
         double *d = ann->delta + (h * ann->hidden);
@@ -386,96 +328,29 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         /* Find first weight in following layer (which may be hidden or output). */
         double const * const ww = ann->weight + ((ann->inputs+1) * ann->hidden) + ((ann->hidden+1) * ann->hidden * (h));
 
-
-        /////////////////////////////////
-        // TODO: 2 GEMV using BLAS   //
-        /////////////////////////////////
-
-        /*
-        Function description:
-        First, run an input through the network (see TODO 1).
-        Then, starting at the output layer and running backwards, determine the
-        deltas, the differences between the desired activation and actual
-        activation of each neuron.
-
-        Variables:
-        ann: The artificial neural network, same as in TODO 1. \
-             ann->delta: An area of memory as big as ann->output.
-                        When function returns, stores difference between desired
-                        output and actual output.
-        h:  The index of the current layer. Starting at the output layer and
-            going backwards.
-        o:  The actual output of the current layer, produced by TODO 1 function.
-        d:  The delta vector of the current layer, this is what we're calculating
-        dd: The delta vector of the *previous* layer, at index (h+1).
-        ww: The edge weights going from the previous layer and the current one.
-
-        Note 1: We're playing fast and loose with the term "difference" here.
-                It is not strictly a [desired]-[actual] calculation, but can be
-                conceptually thought of as a difference.
-        Note 2: We say "previous" layer meaning the layer involved in the
-                previous calculation. Because we are going backwards, this is,
-                strictly speaking, the "following" layer, which is what it is
-                called in the source code comments.
-        */
-
-        // TODO 2.a: Define the m and n dimension of the delta matrix
-        // Hint: Look at the double for loop
         int m = ann->hidden;
         int n = (h == ann->hidden_layers-1) ? ann->outputs : ann->hidden;
 
         //A temporary vector to store the propagated delta from the previous layer.
         double* delta = calloc(ann->hidden, sizeof(double));
 
-        // TODO 2.b: Decompose and implement GEMV BLAS call for the code
-        // Hint: Think about how ww is offset from its original address.
-        // You will need pointer arithmetic for the BLAS call
-        // HOTSPOT Before - 37.75 %
-        // HOTSPOT After part 1 - 46.81 %
-        /*
-        for (j = 0; j < ann->hidden; ++j) {
-            //We iterate up to the value ann->outputs if we are on the output layer,
-            //h == ann->hidden_layers-1, and to ann->hidden otherwise.
-            for (k = 0; k < (h == ann->hidden_layers-1 ? ann->outputs : ann->hidden); ++k) {
-                //Similarly to TODO 1, we add 1 to ann->hidden and j here as a
-                //consequence of how bias for each neuron is stored.
-                const int windex = k * (ann->hidden + 1) + (j + 1);
-                //Propagate the deltas from the previous layer backwards
-                //Using the weights between the layers and storing the result in "delta"
-                delta[j] += dd[k] * ww[windex];
-            }
-            //Calculate the actual new deltas for this layer
-            d[j] = o[j] * (1.0-o[j]) * delta[j];
-        }
-        */
-
-
         cblas_dgemv(CblasRowMajor, CblasTrans, n, m, 1.0, ww+1, m+1, dd, 1, 0.0, delta, 1);
         for (j = 0; j < m; ++j) d[j] = o[j] * (1.0-o[j]) * delta[j];
 
-
         free(delta);
-
-        /////////////////////////////////
-        // TODO 2 END               //
-        /////////////////////////////////
     }
 
 
     /* Train the outputs. */
     {
         /* Find first output delta. */
-        double const *d = ann->delta + ann->hidden * ann->hidden_layers; /* First output delta. */
+        double const *d = ann->delta + ann->hidden * ann->hidden_layers;
 
         /* Find first weight to first output delta. */
-        double *w = ann->weight + (ann->hidden_layers
-                ? ((ann->inputs+1) * ann->hidden + (ann->hidden+1) * ann->hidden * (ann->hidden_layers-1))
-                : (0));
+        double *w = ann->weight + (ann->hidden_layers ? ((ann->inputs+1) * ann->hidden + (ann->hidden+1) * ann->hidden * (ann->hidden_layers-1)) : (0));
 
         /* Find first output in previous layer. */
-        double const * const i = ann->output + (ann->hidden_layers
-                ? (ann->inputs + (ann->hidden) * (ann->hidden_layers-1))
-                : 0);
+        double const * const i = ann->output + (ann->hidden_layers ? (ann->inputs + (ann->hidden) * (ann->hidden_layers-1)) : 0);
 
         /* Set output layer weights. */
         for (j = 0; j < ann->outputs; ++j) {
@@ -483,7 +358,6 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
             for (k = 1; k < (ann->hidden_layers ? ann->hidden : ann->inputs) + 1; ++k) {
                 *w++ += *d * learning_rate * i[k-1];
             }
-
             ++d;
         }
 
@@ -498,31 +372,25 @@ void genann_train(genann const *ann, double const *inputs, double const *desired
         double const *d = ann->delta + (h * ann->hidden);
 
         /* Find first input to this layer. */
-        double const *i = ann->output + (h
-                ? (ann->inputs + ann->hidden * (h-1))
-                : 0);
+        double const *i = ann->output + (h ? (ann->inputs + ann->hidden * (h-1)) : 0);
 
         /* Find first weight to this layer. */
-        double *w = ann->weight + (h
-                ? ((ann->inputs+1) * ann->hidden + (ann->hidden+1) * (ann->hidden) * (h-1))
-                : 0);
+        double *w = ann->weight + (h ? ((ann->inputs+1) * ann->hidden + (ann->hidden+1) * (ann->hidden) * (h-1)) : 0);
 
 
-        /////////////////////////////////
-        // TODO: 3 (Optional) Optimize //
-        /////////////////////////////////
-        // HOTSPOT After part 1 - 32.47 %
-        // HOTSPOT After part 2 - 52.77 %
-        for (j = 0; j < ann->hidden; ++j) {
-            *w++ += *d * learning_rate * -1.0;
-            for (k = 1; k < (h == 0 ? ann->inputs : ann->hidden) + 1; ++k) {
-                *w++ += *d * learning_rate * i[k-1];
+        int m = ann->hidden;
+        int n = (h == 0) ? ann->inputs : ann->hidden;
+        /*
+        for (j = 0; j < m; ++j) {
+            for (k = 0; k < n+1; ++k) {
+                w[k + j*(n+1)] += learning_rate * d[j] * (k > 0 ? i[k-1] : -1.0);
             }
-            ++d;
         }
-        /////////////////////////////////
-        // TODO 3 END               //
-        /////////////////////////////////
+        */
+        double i_blas[n+1];
+        *i_blas = -1;
+        memcpy(i_blas+1, i, n*sizeof(double));
+        cblas_dger(CblasRowMajor, m, n+1, learning_rate, d, 1, i_blas, 1, w, n+1);
     }
 
 }
