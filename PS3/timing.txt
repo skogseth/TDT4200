@@ -53,3 +53,23 @@ sys	0m0.296s
 
 
 ===> 0.700 seconds
+
+
+
+
+
+After part 3:
+
+selbu:~/Documents/TDT4200/PS3/part_3$ time ./example4
+GENANN example 4.
+Train an ANN on the IRIS dataset using backpropagation.
+Loading 150 data points from example/iris.data
+Training for 1000 loops over data.
+147/150 correct (98.0%).
+
+real	0m0.544s
+user	0m0.644s
+sys	0m0.284s
+
+
+===> 0.544 seconds
