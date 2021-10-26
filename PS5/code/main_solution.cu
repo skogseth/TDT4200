@@ -95,8 +95,8 @@ int main(int argc, char** argv) {
 	pixel* d_pixels_in;
 	pixel* d_pixels_out;
 //TODO 1 a - cuda malloc
-	cudaMalloc(d_pixels_in, sizeof(pixel)*in_width*in_height);
-	cudaMalloc(d_pixels_out, sizeof(pixel)*out_width*out_height);
+	cudaMalloc(&d_pixels_in, sizeof(pixel)*in_width*in_height);
+	cudaMalloc(&d_pixels_out, sizeof(pixel)*out_width*out_height);
 //TODO END
 
    	cudaEvent_t start_transfer, stop_transfer;
