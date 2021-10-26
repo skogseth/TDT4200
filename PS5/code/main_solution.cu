@@ -55,7 +55,7 @@ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width,
 }
 //---------------------------------------------------------------------------
 // TODO 2 a: Change to kernel
-__global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_width) {
+__global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_height) {
 	// TODO 2 c - Parallelize the kernel
 	/*
 	for(int i = 0; i < out_height; i++) {
