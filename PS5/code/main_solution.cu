@@ -55,7 +55,7 @@ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width,
 }
 //---------------------------------------------------------------------------
 // TODO 2 a: Change to kernel
-__global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_width, dim3 blockSize, dim3 gridSize) {
+__global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_width) {
 	// TODO 2 c - Parallelize the kernel
 	/*
 	for(int i = 0; i < out_height; i++) {
@@ -73,10 +73,10 @@ __global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_
 	*/
 
 	pixel new_pixel;
-	int j = threadIdx.x + blockIdx.x * blockDim.x;
-	int i = j; // ??
-	if (i < out_width && j < out_height) bilinear(d_pixels_in, i, j, &new_pixel, in_width, in_height);
-	d_pixels_out[i*out_width+j] = new_pixel;
+	int col = threadIdx.x + blockIdx.x * blockDim.x;
+	int row = col; // ??
+	if (row < out_height && col < out_width) bilinear(d_pixels_in, row, col, &new_pixel, in_width, in_height);
+	d_pixels_out[row*out_width+col] = new_pixel;
 }
 
 int main(int argc, char** argv) {
@@ -128,7 +128,8 @@ int main(int argc, char** argv) {
 
 //TODO 2 a - GPU computation
 // Change the function call so that it becomes a kernel call. Change the input and output pixel variables to be device-side instead of host-side.
-    bilinear_kernel(d_pixels_in, d_pixels_out, in_width, in_height, out_width, out_height, blockSize, gridSize);
+    //bilinear_kernel(d_pixels_in, d_pixels_out, in_width, in_height, out_width, out_height);
+	bilinear_kernel<<<gridSize, blockSize>>>(d_pixels_in, d_pixels_out, in_width, in_height, out_width, out_height);
 // TODO END
 
 	cudaEventRecord(stop);
