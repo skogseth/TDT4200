@@ -17,8 +17,7 @@ typedef struct pixel_struct {
 } pixel;
 
 #define cudaErrCheck(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
 	if (code != cudaSuccess) {
 		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
 		if (abort) exit(code);
@@ -29,8 +28,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 //--------------------------bilinear interpolation--------------------------------------------------
 //--------------------------------------------------------------------------------------------------
 // TODO 2 b: Change to device function
-void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height)
-{
+void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height) {
 	int cm, cn, fm, fn;
 	double alpha, beta;
 
@@ -57,9 +55,7 @@ void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height
 }
 //---------------------------------------------------------------------------
 // TODO 2 a: Change to kernel
-void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, 
-			int in_width, int in_height, 
-			int out_width, int out_height) {
+void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_height) {
 	// TODO 2 c - Parallelize the kernel
 	for(int i = 0; i < out_height; i++) {
 		for(int j = 0; j < out_width; j++) {
@@ -75,8 +71,7 @@ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out,
 	}
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
 	stbi_set_flip_vertically_on_load(true);
 	stbi_flip_vertically_on_write(true);
 
@@ -85,24 +80,23 @@ int main(int argc, char** argv)
 
 	pixel* h_pixels_in;
 	int channels;
-	h_pixels_in = (pixel *) stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
-	if (h_pixels_in == NULL) {
-		exit(1);
-	}
+	h_pixels_in = (pixel*) stbi_load(argv[1], &in_width, &in_height, &channels, STBI_rgb_alpha);
+	if (h_pixels_in == NULL) exit(1);
 	printf("Image dimensions: %dx%d\n", in_width, in_height);
 
-	double scale_x = argc > 2 ? atof(argv[2]): 2;
-	double scale_y = argc > 3 ? atof(argv[3]): 8;
+	double scale_x = argc > 2 ? atof(argv[2]) : 2;
+	double scale_y = argc > 3 ? atof(argv[3]) : 8;
 
 	int out_width = in_width * scale_x;
 	int out_height = in_height * scale_y;
 
 	pixel* h_pixels_out = (pixel*) malloc(sizeof(pixel)*out_width*out_height);
-	
+
 	pixel* d_pixels_in;
 	pixel* d_pixels_out;
 //TODO 1 a - cuda malloc
-
+	cudaMalloc(d_pixels_in, sizeof(pixel)*in_width*in_height);
+	cudaMalloc(d_pixels_out, sizeof(pixel)*out_width*out_height);
 //TODO END
 
    	cudaEvent_t start_transfer, stop_transfer;
@@ -132,8 +126,7 @@ int main(int argc, char** argv)
 	cudaEventRecord(stop);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
-	if (err != cudaSuccess)
-		printf("%s\n", cudaGetErrorString(err));
+	if (err != cudaSuccess) printf("%s\n", cudaGetErrorString(err));
 	cudaDeviceSynchronize();
 	cudaEventSynchronize(stop);
 	float spentTime = 0.0;
