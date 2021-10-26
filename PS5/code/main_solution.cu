@@ -28,7 +28,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 //--------------------------bilinear interpolation--------------------------------------------------
 //--------------------------------------------------------------------------------------------------
 // TODO 2 b: Change to device function
-void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height) {
+__device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height) {
 	int cm, cn, fm, fn;
 	double alpha, beta;
 
@@ -55,11 +55,12 @@ void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height
 }
 //---------------------------------------------------------------------------
 // TODO 2 a: Change to kernel
-void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_height) {
+__global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_width, dim3 blockSize, dim3 gridSize) {
 	// TODO 2 c - Parallelize the kernel
+	/*
 	for(int i = 0; i < out_height; i++) {
 		for(int j = 0; j < out_width; j++) {
-			pixel new_pixel;
+
 
 			float row = i * (in_height-1) / (float)out_height;
 			float col = j * (in_width-1) / (float)out_width;
@@ -69,6 +70,13 @@ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int 
 			d_pixels_out[i*out_width+j] = new_pixel;
 		}
 	}
+	*/
+
+	pixel new_pixel;
+	int j = threadIdx.x + blockIdx.x * blockDim.x;
+	int i = j; // ??
+	if (i < out_width && j < out_height) bilinear(d_pixels_in, i, j, &new_pixel, in_width, in_height);
+	d_pixels_out[i*out_width+j] = new_pixel;
 }
 
 int main(int argc, char** argv) {
@@ -114,14 +122,13 @@ int main(int argc, char** argv) {
 // TODO END
 
    	cudaEvent_t start, stop;
-       	cudaEventCreate(&start);
+    	cudaEventCreate(&start);
         cudaEventCreate(&stop);
-
 	cudaEventRecord(start);
 
 //TODO 2 a - GPU computation
 // Change the function call so that it becomes a kernel call. Change the input and output pixel variables to be device-side instead of host-side.
-        bilinear_kernel(h_pixels_in, h_pixels_out, in_width, in_height, out_width, out_height);
+    bilinear_kernel(d_pixels_in, d_pixels_out, in_width, in_height, out_width, out_height, blockSize, gridSize);
 // TODO END
 
 	cudaEventRecord(stop);
