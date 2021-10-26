@@ -56,22 +56,6 @@ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width,
 //---------------------------------------------------------------------------
 // TODO 2 a: Change to kernel
 __global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_height) {
-	// TODO 2 c - Parallelize the kernel
-	/*
-	for(int i = 0; i < out_height; i++) {
-		for(int j = 0; j < out_width; j++) {
-
-
-			float row = i * (in_height-1) / (float)out_height;
-			float col = j * (in_width-1) / (float)out_width;
-
-			bilinear(d_pixels_in, row, col, &new_pixel, in_width, in_height);
-
-			d_pixels_out[i*out_width+j] = new_pixel;
-		}
-	}
-	*/
-
 	pixel new_pixel;
 	int col = threadIdx.x + blockIdx.x * blockDim.x;
 	int row = col; // ??
@@ -143,7 +127,7 @@ int main(int argc, char** argv) {
 	printf("Time spent %.3f seconds\n", spentTime/1000);
 
 //TODO 3 a - Copy the device-side data into the host-side variable
-
+	cudaMemcpy(h_pixels_out, d_pixels_out, sizeof(pixel)*out_width*out_height, cudaMemcpyDeviceToHost);
 // TODO END
 
 	cudaEventRecord(stop_transfer);
@@ -155,7 +139,10 @@ int main(int argc, char** argv) {
 	// Writes the host-side data to the output file.
 	stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, h_pixels_out, sizeof(pixel) * out_width);
 //TODO 3 b - Free heap-allocated memory on device and host
-
+	free(h_pixels_in);
+	free(h_pixels_out);
+	cudaFree(d_pixels_in);
+	cudaFree(d_pixels_out);
 // TODO END
 
 	return 0;
