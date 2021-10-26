@@ -104,7 +104,8 @@ int main(int argc, char** argv) {
         cudaEventCreate(&stop_transfer);
 	cudaEventRecord(start_transfer);
 //TODO 1 b - cuda memcpy
-
+	cudaMemcpy(d_pixels_in, h_pixels_in, sizeof(pixel)*in_width*in_height), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_pixels_out, h_pixels_out, sizeof(pixel)*out_width*out_height), cudaMemcpyHostToDevice);
 //TODO END
 
 // TODO 1 c - block size and grid size. gridSize should depend on the blockSize and output dimensions.
