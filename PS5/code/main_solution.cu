@@ -57,8 +57,8 @@ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width,
 // TODO 2 a: Change to kernel
 __global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_height) {
 	pixel new_pixel;
+	int row = threadIdx.y + blockIdx.y * blockDim.y;
 	int col = threadIdx.x + blockIdx.x * blockDim.x;
-	int row = col; // ??
 	if (row < out_height && col < out_width) bilinear(d_pixels_in, row, col, &new_pixel, in_width, in_height);
 	d_pixels_out[row*out_width+col] = new_pixel;
 }
