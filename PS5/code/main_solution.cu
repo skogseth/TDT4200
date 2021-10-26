@@ -109,8 +109,8 @@ int main(int argc, char** argv) {
 //TODO END
 
 // TODO 1 c - block size and grid size. gridSize should depend on the blockSize and output dimensions.
-	dim3 blockSize(1,1);
-	dim3 gridSize(1,1);
+	dim3 blockSize(32,32);
+	dim3 gridSize(out_width/blockSize.x, out_height/blockSize.y);
 // TODO END
 
    	cudaEvent_t start, stop;
