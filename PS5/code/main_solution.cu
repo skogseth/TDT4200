@@ -24,10 +24,10 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 	}
 }
 
+
 //--------------------------------------------------------------------------------------------------
 //--------------------------bilinear interpolation--------------------------------------------------
 //--------------------------------------------------------------------------------------------------
-// TODO 2 b: Change to device function
 __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width, int height) {
 	int cm, cn, fm, fn;
 	double alpha, beta;
@@ -53,12 +53,13 @@ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int width,
 			+ (1-alpha)*(1-beta)*Im[cm*width+cn].b );
 	pix->a = 255;
 }
-//---------------------------------------------------------------------------
-// TODO 2 a: Change to kernel
+
+
 __global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_width, int in_height, int out_width, int out_height) {
 	pixel new_pixel;
 	int i = threadIdx.y + blockIdx.y * blockDim.y;
 	int j = threadIdx.x + blockIdx.x * blockDim.x;
+
 	if (i < out_height && j < out_width) {
 		float row = i * (in_height-1)/(float)out_height;
 		float col = j * (in_width-1)/(float)out_width;
@@ -66,6 +67,8 @@ __global__ void bilinear_kernel(pixel* d_pixels_in, pixel* d_pixels_out, int in_
 		d_pixels_out[i*out_width+j] = new_pixel;
 	}
 }
+
+
 
 int main(int argc, char** argv) {
 	stbi_set_flip_vertically_on_load(true);
@@ -90,55 +93,47 @@ int main(int argc, char** argv) {
 
 	pixel* d_pixels_in;
 	pixel* d_pixels_out;
-//TODO 1 a - cuda malloc
+
 	cudaError_t error;
 	error = cudaMalloc(&d_pixels_in, sizeof(pixel)*in_width*in_height);
-	if (error != cudaSuccess) printf("you done fucked up memory allocation (device in)\n");
+	if (error != cudaSuccess) printf("memory allocation failed (device in)\n");
 	error = cudaMalloc(&d_pixels_out, sizeof(pixel)*out_width*out_height);
-	if (error != cudaSuccess) printf("you done fucked up memory allocation (device out)\n");
-//TODO END
+	if (error != cudaSuccess) printf("memory allocation failed (device out)\n");
 
    	cudaEvent_t start_transfer, stop_transfer;
        	cudaEventCreate(&start_transfer);
         cudaEventCreate(&stop_transfer);
 	cudaEventRecord(start_transfer);
-//TODO 1 b - cuda memcpy
-	error = cudaMemcpy(d_pixels_in, h_pixels_in, sizeof(pixel)*in_width*in_height, cudaMemcpyHostToDevice);
-	if (error != cudaSuccess) printf("memcpy in fucked man\n");
-	error = cudaMemcpy(d_pixels_out, h_pixels_out, sizeof(pixel)*out_width*out_height, cudaMemcpyHostToDevice);
-	if (error != cudaSuccess) printf("memcpy out fucked man\n");
-//TODO END
 
-// TODO 1 c - block size and grid size. gridSize should depend on the blockSize and output dimensions.
+	error = cudaMemcpy(d_pixels_in, h_pixels_in, sizeof(pixel)*in_width*in_height, cudaMemcpyHostToDevice);
+	if (error != cudaSuccess) printf("memcpy from host to device failed (input)\n");
+	error = cudaMemcpy(d_pixels_out, h_pixels_out, sizeof(pixel)*out_width*out_height, cudaMemcpyHostToDevice);
+	if (error != cudaSuccess) printf("memcpy from host to device failed (output)\n");
+
 	dim3 blockSize(32,32);
 	dim3 gridSize(out_width/blockSize.x, out_height/blockSize.y);
-// TODO END
 
    	cudaEvent_t start, stop;
     	cudaEventCreate(&start);
         cudaEventCreate(&stop);
 	cudaEventRecord(start);
 
-//TODO 2 a - GPU computation
-// Change the function call so that it becomes a kernel call. Change the input and output pixel variables to be device-side instead of host-side.
-    //bilinear_kernel(d_pixels_in, d_pixels_out, in_width, in_height, out_width, out_height);
 	bilinear_kernel<<<gridSize, blockSize>>>(d_pixels_in, d_pixels_out, in_width, in_height, out_width, out_height);
-// TODO END
 
 	cudaEventRecord(stop);
 	cudaDeviceSynchronize();
+
 	error = cudaGetLastError();
-	if (error != cudaSuccess) printf("something got fucked in bilinear_kernel\n%s\n", cudaGetErrorString(error));
+	if (error != cudaSuccess) printf("bilinear_kernel failed\n%s\n", cudaGetErrorString(error));
+
 	cudaDeviceSynchronize();
 	cudaEventSynchronize(stop);
 	float spentTime = 0.0;
 	cudaEventElapsedTime(&spentTime, start, stop);
 	printf("Time spent %.3f seconds\n", spentTime/1000);
 
-//TODO 3 a - Copy the device-side data into the host-side variable
 	error = cudaMemcpy(h_pixels_out, d_pixels_out, sizeof(pixel)*out_width*out_height, cudaMemcpyDeviceToHost);
-	if (error != cudaSuccess) printf("memcpy from device to host fucked up\n%s\n", cudaGetErrorString(error));
-// TODO END
+	if (error != cudaSuccess) printf("memcpy from device to host failed\n%s\n", cudaGetErrorString(error));
 
 	cudaEventRecord(stop_transfer);
 	cudaEventSynchronize(stop_transfer);
@@ -148,12 +143,11 @@ int main(int argc, char** argv) {
 
 	// Writes the host-side data to the output file.
 	stbi_write_png("output.png", out_width, out_height, STBI_rgb_alpha, h_pixels_out, sizeof(pixel) * out_width);
-//TODO 3 b - Free heap-allocated memory on device and host
+
 	free(h_pixels_in);
 	free(h_pixels_out);
 	cudaFree(d_pixels_in);
 	cudaFree(d_pixels_out);
-// TODO END
 
 	return 0;
 }
