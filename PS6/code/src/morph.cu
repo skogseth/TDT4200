@@ -359,6 +359,12 @@ int main(int argc,char *argv[]){
     cudaErrorCheck(cudaMalloc(&dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
     cudaErrorCheck(cudaMalloc(&dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
 
+    // Copy src and dest memory from host side to device side
+    cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
+    cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
+    cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
+    cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
+
 
 	// TODO: 3 a: Occupancy API call
 	// TODO: 3 b: Define the 2D block size
@@ -380,12 +386,8 @@ int main(int argc,char *argv[]){
 		pixel* hMorphMap = hMorphMapArr[i];
 		float dT = t;
 
-        // Copy memory from host side to device side
-        cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
+        // Copy morph memory from host side to device side
         cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
 		// Block and grid size definition
