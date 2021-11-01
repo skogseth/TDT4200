@@ -346,7 +346,6 @@ int main(int argc,char *argv[]){
 	// TODO: 1 e: CUDA setup
 
 
-
 	// TODO: 3 a: Occupancy API call
 	// TODO: 3 b: Define the 2D block size
 
@@ -414,8 +413,8 @@ int main(int argc,char *argv[]){
 		cudaErrorCheck(cudaEventDestroy(stop));
 		printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
 
-		// TODO 1 d: Copy data back to host from GPU. Save the morphed image to hMorphMapArr[i].
-		// Do not write the image out to file. This is done afterwards.
+		// Copy data back to host from GPU. Save the morphed image to hMorphMapArr[i].
+        cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
 	}
 
 	// Timing code
