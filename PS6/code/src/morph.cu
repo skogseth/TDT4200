@@ -284,8 +284,7 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 ///////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////
 
-// TODO 1 b: Change to kernel
-void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
+__global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// TODO 2 c: Implement a shared memory solution.
 
 	// TODO 1 c: Parallelize kernel
@@ -370,7 +369,7 @@ int main(int argc,char *argv[]){
         SimpleFeatureLine* dSrcLines;
        	SimpleFeatureLine* dDstLines;
        	SimpleFeatureLine* dMorphLines;
-	pixel* dSrcImgMap;
+	    pixel* dSrcImgMap;
        	pixel* dDstImgMap;
        	pixel* dMorphMap;
 
@@ -390,7 +389,9 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
-		// TODO: 1 b: block and grid size definition
+		// Block and grid size definition
+        dim3 blockSize(8,8);
+    	dim3 gridSize(imgWidthDest/blockSize.x,imgHeightDest/blockSize.y);
 
 		// Timing code
 		float elapsed=0;
@@ -399,9 +400,9 @@ int main(int argc,char *argv[]){
 		cudaErrorCheck(cudaEventCreate(&stop));
 		cudaErrorCheck(cudaEventRecord(start, 0));
 
-		// TODO 1 b: Launch kernel.
 		// For 2 b you will need to change the launch parameters.
-		morphKernel(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
+        // Launch kernel
+		morphKernel<<<gridSize, blockSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
 
 		// Timing code
 		cudaErrorCheck(cudaEventRecord(stop, 0));
