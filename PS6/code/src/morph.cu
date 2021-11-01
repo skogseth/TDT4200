@@ -367,16 +367,20 @@ int main(int argc,char *argv[]){
 		float dT = t;
 
         // Define pointers for device side memory
-        SimpleFeatureLine* dSrcLines, dDstLines, dMorphLines;
-		pixel* dSrcImgMap, dDstImgMap, dMorphMap;
+        SimpleFeatureLine* dSrcLines;
+       	SimpleFeatureLine* dDstLines;
+       	SimpleFeatureLine* dMorphLines;
+	pixel* dSrcImgMap;
+       	pixel* dDstImgMap;
+       	pixel* dMorphMap;
 
         // Allocate device side memory
-        cudaErrorCheck(cudaMalloc(dSrcLines, sizeof(SimpleFeatureLine)));
-        cudaErrorCheck(cudaMalloc(dDstLines, sizeof(SimpleFeatureLine)));
-        cudaErrorCheck(cudaMalloc(dMorphLines, sizeof(SimpleFeatureLine)));
-        cudaErrorCheck(cudaMalloc(dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
-        cudaErrorCheck(cudaMalloc(dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
-        cudaErrorCheck(cudaMalloc(dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
+        cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(&dDstLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(&dMorphLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(&dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
+        cudaErrorCheck(cudaMalloc(&dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
+        cudaErrorCheck(cudaMalloc(&dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
 
         // Copy memory from host side to device side
         cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
