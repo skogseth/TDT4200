@@ -20,32 +20,27 @@
 using namespace std;
 
 //the pixel
-typedef struct pix{
-  unsigned char r,g,b,a;
+typedef struct pix {
+    unsigned char r,g,b,a;
 } pixel;
 
 typedef struct SimplePoint_struct {
-        float x, y;
-        
+    float x, y;
 } SimplePoint;
 
 
 typedef struct SimpleFeatureLine_struct {
-      SimplePoint startPoint;
-        SimplePoint endPoint;
-        
+    SimplePoint startPoint;
+    SimplePoint endPoint;
 } SimpleFeatureLine;
 
 
-template <typename T> 
-__host__ __device__ T CLAMP(T value, T low, T high)
-{
-        return (value < low) ? low : ((value > high) ? high : value);
+template <typename T> __host__ __device__ T CLAMP(T value, T low, T high) {
+    return (value < low) ? low : ((value > high) ? high : value);
 }
 
 #define cudaErrorCheck(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
 	if (code != cudaSuccess) {
 		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
 		if (abort) exit(code);
@@ -68,7 +63,7 @@ string dataPath;
 string stepsStr;
 string pStr, aStr, bStr, tStr;
 
-void imgRead(string filename, pixel * &map, int &imgW, int &imgH){
+void imgRead(string filename, pixel * &map, int &imgW, int &imgH) {
     stbi_set_flip_vertically_on_load(true);
 
     int x, y, componentsPerPixel;
@@ -86,7 +81,7 @@ void imgRead(string filename, pixel * &map, int &imgW, int &imgH){
     cout<<"Read the image file \""<<filename<<"\" successfully ."<<endl;
 }
 
-void imgWrite(string filename, pixel * map, int imgW, int imgH){
+void imgWrite(string filename, pixel * map, int imgW, int imgH) {
     if(filename.empty()){
         cout<<"The output file name cannot be empty"<<endl;
         exit(1);
@@ -111,8 +106,8 @@ void loadLines(SimpleFeatureLine** linesSrc, SimpleFeatureLine** linesDst, int* 
 
 	for(int i = 0; i < (*linesLen)*fac; i++) {
 		line = (i % fac) ? &dstLines[(i-1)/fac] : &srcLines[i/fac];
-		fscanf(f, "%f,%f,%f,%f", 
-				&(line->startPoint.x), &(line->startPoint.y), 
+		fscanf(f, "%f,%f,%f,%f",
+				&(line->startPoint.x), &(line->startPoint.y),
 				&(line->endPoint.x), &(line->endPoint.y));
 	}
 
@@ -162,15 +157,13 @@ void parse(int argc, char *argv[]) {
         default:
             cout<<"Usage:"<<endl;
             cout<<"./morph srcImg.png destImg.png lines.txt outputPath steps [p] [a] [b]"<<endl;
-            exit(1); 
+            exit(1);
     }
 
 }
 
 
-void simpleLineInterpolate(SimpleFeatureLine* sourceLines, 
-                     SimpleFeatureLine* destLines , SimpleFeatureLine** morphLines, int linesLen, float t)
-{
+void simpleLineInterpolate(SimpleFeatureLine* sourceLines, SimpleFeatureLine* destLines , SimpleFeatureLine** morphLines, int linesLen, float t) {
 	SimpleFeatureLine* interLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*linesLen);
 	for(int i=0; i<linesLen; i++){
 		interLines[i].startPoint.x = (1-t)*(sourceLines[i].startPoint.x) + t*(destLines[i].startPoint.x);
@@ -192,9 +185,7 @@ void simpleLineInterpolate(SimpleFeatureLine* sourceLines,
    p, a, b = parameters of the weight function
    output:
    src = the corresponding point */
-__host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* interLines,
-          SimpleFeatureLine* sourceLines, const int sourceLinesSize, SimplePoint* src)
-{
+__host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* interLines, SimpleFeatureLine* sourceLines, const int sourceLinesSize, SimplePoint* src) {
 	int i;
 	float interLength, srcLength;
 	float weight, weightSum, dist;
@@ -248,8 +239,7 @@ __host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* int
 	src->y = sum_y / weightSum;
 }
 
-__host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int dImgWidth)
-{
+__host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int dImgWidth) {
 	int cm, cn, fm, fn;
 	double alpha, beta;
 
@@ -261,24 +251,21 @@ __host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, i
 	beta = ceil(col) - col;
 
 	pix->r = (unsigned int)( alpha*beta*Im[fm*dImgWidth+fn].r
-			+ (1-alpha)*beta*Im[cm*dImgWidth+fn].r 
+			+ (1-alpha)*beta*Im[cm*dImgWidth+fn].r
 			+ alpha*(1-beta)*Im[fm*dImgWidth+cn].r
 			+ (1-alpha)*(1-beta)*Im[cm*dImgWidth+cn].r );
 	pix->g = (unsigned int)( alpha*beta*Im[fm*dImgWidth+fn].g
-			+ (1-alpha)*beta*Im[cm*dImgWidth+fn].g 
+			+ (1-alpha)*beta*Im[cm*dImgWidth+fn].g
 			+ alpha*(1-beta)*Im[fm*dImgWidth+cn].g
 			+ (1-alpha)*(1-beta)*Im[cm*dImgWidth+cn].g );
 	pix->b = (unsigned int)( alpha*beta*Im[fm*dImgWidth+fn].b
-			+ (1-alpha)*beta*Im[cm*dImgWidth+fn].b 
+			+ (1-alpha)*beta*Im[cm*dImgWidth+fn].b
 			+ alpha*(1-beta)*Im[fm*dImgWidth+cn].b
 			+ (1-alpha)*(1-beta)*Im[cm*dImgWidth+cn].b );
 	pix->a = 255;
 }
 
-__host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, 
-                      const SimplePoint* Dest_P, float t, 
-                      pixel* imgSrc, pixel* imgDest, pixel* rgb, int dImgWidth)
-{
+__host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const SimplePoint* Dest_P, float t, pixel* imgSrc, pixel* imgDest, pixel* rgb, int dImgWidth) {
     pixel srcColor, destColor;
 
     bilinear(imgSrc, Src_P->y, Src_P->x, &srcColor, dImgWidth);
@@ -298,9 +285,7 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P,
 ///////////////////////////////////////////////////////////////////////////////////
 
 // TODO 1 b: Change to kernel
-void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, 
-		pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, 
-		int linesLen, int dImgWidth, int dImgHeight, float dT) {
+void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// TODO 2 c: Implement a shared memory solution.
 
 	// TODO 1 c: Parallelize kernel
@@ -335,7 +320,7 @@ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, Sim
 
 int main(int argc,char *argv[]){
 
-	// Setup ////////////////// 
+	// Setup //////////////////
 	parse(argc, argv);
 	tempFile = outputPath;
 	float stepSize = 1.0/steps;
@@ -363,7 +348,7 @@ int main(int argc,char *argv[]){
 
 	// TODO: 3 a: Occupancy API call
 	// TODO: 3 b: Define the 2D block size
-	
+
 	// TODO: 2 a: Define shared-memory size
 
 
@@ -371,9 +356,9 @@ int main(int argc,char *argv[]){
 	cudaEvent_t start_total, stop_total;
 	cudaErrorCheck(cudaEventCreate(&start_total));
 	cudaErrorCheck(cudaEventCreate(&stop_total));
-	cudaErrorCheck( cudaEventRecord(start_total, 0));
+	cudaErrorCheck(cudaEventRecord(start_total, 0));
 
-	// Computes a morphed image for each step based on hMorphLinesArr[i]. 
+	// Computes a morphed image for each step based on hMorphLinesArr[i].
 	// The morphed image is saved in hMorphMapArr[i];
 	for (int i = 0; i < steps+1; i++) {
 		t = stepSize*i;
@@ -381,17 +366,25 @@ int main(int argc,char *argv[]){
 		pixel* hMorphMap = hMorphMapArr[i];
 		float dT = t;
 
-		/* TODO: 1 a: CUDA malloc and memcpy */
+        // Define pointers for device side memory
+        SimpleFeatureLine* dSrcLines, dDstLines, dMorphLines;
+		pixel* dSrcImgMap, dDstImgMap, dMorphMap;
 
-		// Delete these lines and replace with CUDA variables
-		SimpleFeatureLine* dSrcLines = hSrcLines;
-		SimpleFeatureLine* dDstLines = hDstLines;
-		SimpleFeatureLine* dMorphLines = hMorphLines;
-		pixel* dSrcImgMap = hSrcImgMap;
-		pixel* dDstImgMap = hDstImgMap;
-		pixel* dMorphMap = hMorphMap;
+        // Allocate device side memory
+        cudaErrorCheck(cudaMalloc(dSrcLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(dDstLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(dMorphLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
+        cudaErrorCheck(cudaMalloc(dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
+        cudaErrorCheck(cudaMalloc(dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
 
-		/* TODO: 1 a: END */
+        // Copy memory from host side to device side
+        cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
 		// TODO: 1 b: block and grid size definition
 
@@ -400,15 +393,11 @@ int main(int argc,char *argv[]){
 		cudaEvent_t start, stop;
 		cudaErrorCheck(cudaEventCreate(&start));
 		cudaErrorCheck(cudaEventCreate(&stop));
-		cudaErrorCheck( cudaEventRecord(start, 0));
+		cudaErrorCheck(cudaEventRecord(start, 0));
 
-		// TODO 1 b: Launch kernel. 
+		// TODO 1 b: Launch kernel.
 		// For 2 b you will need to change the launch parameters.
-		morphKernel(
-			dSrcLines, dDstLines, dMorphLines, 
-			dSrcImgMap, dDstImgMap, dMorphMap,
-			linesLen, dImgWidth, dImgHeight, dT
-		);
+		morphKernel(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
 
 		// Timing code
 		cudaErrorCheck(cudaEventRecord(stop, 0));
@@ -418,9 +407,9 @@ int main(int argc,char *argv[]){
 		cudaErrorCheck(cudaEventDestroy(stop));
 		printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
 
-		// TODO 1 d: Copy data back to host from GPU. Save the morphed image to hMorphMapArr[i]. 
+		// TODO 1 d: Copy data back to host from GPU. Save the morphed image to hMorphMapArr[i].
 		// Do not write the image out to file. This is done afterwards.
-	} 
+	}
 
 	// Timing code
 	float elapsed_total = 0;
@@ -435,8 +424,8 @@ int main(int argc,char *argv[]){
 	// Write morphed images to files
 	for (int i = 0; i < steps+1; i++) {
 		t = stepSize*i;
-    		outputPath = tempFile + "output-" + to_string(t) + ".png";
-    		imgWrite(outputPath, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
+    	outputPath = tempFile + "output-" + to_string(t) + ".png";
+    	imgWrite(outputPath, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
 		free(hMorphMapArr[i]);
 		free(hMorphLinesArr[i]);
 	}
@@ -448,4 +437,3 @@ int main(int argc,char *argv[]){
 
 	return 0;
 }
-
