@@ -439,7 +439,13 @@ int main(int argc,char *argv[]){
 	free(hMorphMapArr);
 	free(hMorphLinesArr);
 
-	// TODO 1 d: cudaFree the heap-allocated memory
+	// Free the device side heap-allocated memory
+    cudaFree(dSrcLines);
+    cudaFree(dDstLines);
+    cudaFree(dMorphLines);
+    cudaFree(dSrcImgMap);
+    cudaFree(dDstImgMap);
+    cudaFree(dMorphMap);
 
 	return 0;
 }
