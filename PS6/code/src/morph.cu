@@ -375,17 +375,17 @@ int main(int argc,char *argv[]){
        	pixel* dMorphMap;
 
         // Allocate device side memory
-        cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)));
-        cudaErrorCheck(cudaMalloc(&dDstLines, sizeof(SimpleFeatureLine)));
-        cudaErrorCheck(cudaMalloc(&dMorphLines, sizeof(SimpleFeatureLine)));
+        cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)*linesLen));
+        cudaErrorCheck(cudaMalloc(&dDstLines, sizeof(SimpleFeatureLine)*linesLen));
+        cudaErrorCheck(cudaMalloc(&dMorphLines, sizeof(SimpleFeatureLine)*linesLen));
         cudaErrorCheck(cudaMalloc(&dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
         cudaErrorCheck(cudaMalloc(&dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
         cudaErrorCheck(cudaMalloc(&dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
 
         // Copy memory from host side to device side
-        cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine), cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
