@@ -343,7 +343,21 @@ int main(int argc,char *argv[]){
 	int dImgWidth = imgHeightOrig; // 1024
 	int dImgHeight = imgWidthOrig; // 1024
 
-	// TODO: 1 e: CUDA setup
+    // Define pointers for device side memory
+    SimpleFeatureLine* dSrcLines;
+    SimpleFeatureLine* dDstLines;
+    SimpleFeatureLine* dMorphLines;
+    pixel* dSrcImgMap;
+    pixel* dDstImgMap;
+    pixel* dMorphMap;
+
+    // Allocate device side memory
+    cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)*linesLen));
+    cudaErrorCheck(cudaMalloc(&dDstLines, sizeof(SimpleFeatureLine)*linesLen));
+    cudaErrorCheck(cudaMalloc(&dMorphLines, sizeof(SimpleFeatureLine)*linesLen));
+    cudaErrorCheck(cudaMalloc(&dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
+    cudaErrorCheck(cudaMalloc(&dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
+    cudaErrorCheck(cudaMalloc(&dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
 
 
 	// TODO: 3 a: Occupancy API call
@@ -365,22 +379,6 @@ int main(int argc,char *argv[]){
 		SimpleFeatureLine* hMorphLines = hMorphLinesArr[i];
 		pixel* hMorphMap = hMorphMapArr[i];
 		float dT = t;
-
-        // Define pointers for device side memory
-        SimpleFeatureLine* dSrcLines;
-       	SimpleFeatureLine* dDstLines;
-       	SimpleFeatureLine* dMorphLines;
-	    pixel* dSrcImgMap;
-       	pixel* dDstImgMap;
-       	pixel* dMorphMap;
-
-        // Allocate device side memory
-        cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)*linesLen));
-        cudaErrorCheck(cudaMalloc(&dDstLines, sizeof(SimpleFeatureLine)*linesLen));
-        cudaErrorCheck(cudaMalloc(&dMorphLines, sizeof(SimpleFeatureLine)*linesLen));
-        cudaErrorCheck(cudaMalloc(&dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
-        cudaErrorCheck(cudaMalloc(&dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
-        cudaErrorCheck(cudaMalloc(&dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
 
         // Copy memory from host side to device side
         cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
@@ -413,7 +411,7 @@ int main(int argc,char *argv[]){
 		cudaErrorCheck(cudaEventDestroy(stop));
 		printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
 
-		// Copy data back to host from GPU. Save the morphed image to hMorphMapArr[i].
+		// Copy data back to host from GPU (hMorphMap -> hMorphMapArr[i])
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
 	}
 
