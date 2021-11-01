@@ -287,33 +287,35 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// TODO 2 c: Implement a shared memory solution.
 
-	// TODO 1 c: Parallelize kernel
-	for (int i = 0; i < dImgHeight; i++) {
-		for (int j = 0; j < dImgWidth; j++) {
-			pixel interColor;
-			SimplePoint dest;
-			SimplePoint src;
-			SimplePoint q;
-			q.x = j;
-			q.y = i;
+    // Get thread indices
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+	int j = threadIdx.x + blockIdx.x * blockDim.x;
 
-			// warping
-			warp(&q, dMorphLines, dSrcLines, linesLen, &src);
-			warp(&q, dMorphLines, dDstLines, linesLen, &dest);
+    // If thread indices are within bounds, execute morphing
+    if (i < dImgHeight && j < dImgWidth) {
+        pixel interColor;
+        SimplePoint dest;
+        SimplePoint src;
+        SimplePoint q;
+        q.x = j;
+        q.y = i;
 
-			src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
-			src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
-			dest.x = CLAMP<double>(dest.x, 0, dImgWidth-1);
-			dest.y = CLAMP<double>(dest.y, 0, dImgHeight-1);
+        // warping
+        warp(&q, dMorphLines, dSrcLines, linesLen, &src);
+        warp(&q, dMorphLines, dDstLines, linesLen, &dest);
 
-			// color interpolation
-			ColorInterPolate(&src, &dest, dT, dSrcImgMap, dDstImgMap, &interColor, dImgWidth);
+        src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
+        src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
+        dest.x = CLAMP<double>(dest.x, 0, dImgWidth-1);
+        dest.y = CLAMP<double>(dest.y, 0, dImgHeight-1);
 
-			dMorphMap[i*dImgWidth+j].r = interColor.r;
-			dMorphMap[i*dImgWidth+j].g = interColor.g;
-			dMorphMap[i*dImgWidth+j].b = interColor.b;
-			dMorphMap[i*dImgWidth+j].a = interColor.a;
-		}
+        // color interpolation
+        ColorInterPolate(&src, &dest, dT, dSrcImgMap, dDstImgMap, &interColor, dImgWidth);
+
+        dMorphMap[i*dImgWidth+j].r = interColor.r;
+        dMorphMap[i*dImgWidth+j].g = interColor.g;
+        dMorphMap[i*dImgWidth+j].b = interColor.b;
+        dMorphMap[i*dImgWidth+j].a = interColor.a;
 	}
 }
 
