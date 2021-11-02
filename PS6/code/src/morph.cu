@@ -380,7 +380,7 @@ int main(int argc,char *argv[]){
 	// TODO: 3 b: Define the 2D block size
 
 	// Define shared-memory size
-    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*2;
+    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
 
     // Block and grid size definition
     dim3 blockSize(8,8);
@@ -414,10 +414,13 @@ int main(int argc,char *argv[]){
         // Launch kernel
 		morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
 
+        cudaError_t error = cudaGetLastError();
+    	if (error != cudaSuccess) printf("kernel failed for i = %d\n%s\n", i, cudaGetErrorString(error));
+
 		// Timing code
 		cudaErrorCheck(cudaEventRecord(stop, 0));
-		cudaErrorCheck(cudaEventSynchronize (stop) );
-		cudaErrorCheck(cudaEventElapsedTime(&elapsed, start, stop) );
+		cudaErrorCheck(cudaEventSynchronize(stop));
+		cudaErrorCheck(cudaEventElapsedTime(&elapsed, start, stop));
 		cudaErrorCheck(cudaEventDestroy(start));
 		cudaErrorCheck(cudaEventDestroy(stop));
 		printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
