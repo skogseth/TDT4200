@@ -290,10 +290,12 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
     SimpleFeatureLine* sSrcLines = s;
     SimpleFeatureLine* sDstLines = s + sizeof(SimpleFeatureLine)*linesLen;
     SimpleFeatureLine* sMorphLines = s + sizeof(SimpleFeatureLine)*linesLen*2;
-    memcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen);
-    memcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen);
-    memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
-
+    if (threadIdx.x == 0 && threadIdx.y == 0) {
+        memcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen);
+        memcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen);
+        memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
+    } // this operation can be parallellized for efficiency, so each thread copies a certain amount of lines
+    __syncthreads();
 
     // Get thread indices
     int i = threadIdx.y + blockIdx.y * blockDim.y;
