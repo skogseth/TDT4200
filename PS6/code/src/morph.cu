@@ -405,11 +405,13 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
 		// Timing code
+        /*
 		float elapsed=0;
 		cudaEvent_t start, stop;
 		cudaErrorCheck(cudaEventCreate(&start));
 		cudaErrorCheck(cudaEventCreate(&stop));
 		cudaErrorCheck(cudaEventRecord(start, 0));
+        */
 
         // Launch kernel
 		morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
@@ -418,12 +420,14 @@ int main(int argc,char *argv[]){
     	if (error != cudaSuccess) printf("kernel failed for i = %d\n%s\n", i, cudaGetErrorString(error));
 
 		// Timing code
+        /*
 		cudaErrorCheck(cudaEventRecord(stop, 0));
 		cudaErrorCheck(cudaEventSynchronize(stop));
 		cudaErrorCheck(cudaEventElapsedTime(&elapsed, start, stop));
 		cudaErrorCheck(cudaEventDestroy(start));
 		cudaErrorCheck(cudaEventDestroy(stop));
 		printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
+        */
 
 		// Copy data back to host from GPU (hMorphMap -> hMorphMapArr[i])
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
