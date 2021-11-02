@@ -288,14 +288,24 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
 	// Move lines from global to shared memory (local memory for each block), both device side
     extern __shared__ SimpleFeatureLine s[];
     SimpleFeatureLine* sSrcLines = &s[0];
-    SimpleFeatureLine* sDstLines = &s[linesLen];// + sizeof(SimpleFeatureLine)*linesLen;
-    SimpleFeatureLine* sMorphLines = &s[2*linesLen];// + sizeof(SimpleFeatureLine)*linesLen*2;
+    SimpleFeatureLine* sDstLines = &s[linesLen];
+    SimpleFeatureLine* sMorphLines = &s[2*linesLen];
+    /*
     if (threadIdx.x == 0 && threadIdx.y == 0) {
         memcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen);
         memcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen);
         memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
     } // this operation can be parallellized for efficiency, so each thread copies a certain amount of lines
-    __syncthreads();	
+    */
+    int numThreads = blockDim.y * blockDim.x;
+    int threadId = threadIdx.y * blockDim.x + threadIdx.x;
+    int linesPerThread = linesLen / numThreads + (threadId < linesLen % numThreads ? 1 : 0);
+    for (int i = 0; i < linesPerThread; i++) {
+        sSrcLines[i*numThreads + threadId] = dSrcLines[i*numThreads + threadId];
+        sDstLines[i*numThreads + threadId] = dDstLines[i*numThreads + threadId];
+        sMorphLines[i*numThreads + threadId] = dMorphLines[i*numThreads + threadId];
+    }
+    __syncthreads();
 
     // Get thread indices
     int i = threadIdx.y + blockIdx.y * blockDim.y;
