@@ -285,7 +285,15 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 ///////////////////////////////////////////////////////////////////////////////////
 
 __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
-	// TODO 2 c: Implement a shared memory solution.
+	// Move lines from global to shared memory (local memory for each block), both device side
+    extern __shared__ int s[];
+    SimpleFeatureLine* sSrcLines = s[0];
+    SimpleFeatureLine* sDstLines = s[linesLen];
+    SimpleFeatureLine* sMorphLines = s[2*linesLen];
+    cudaErrorCheck(cudaMemcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyDeviceToDevice));
+    cudaErrorCheck(cudaMemcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyDeviceToDevice));
+    cudaErrorCheck(cudaMemcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyDeviceToDevice));
+
 
     // Get thread indices
     int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -301,8 +309,8 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
         q.y = i;
 
         // warping
-        warp(&q, dMorphLines, dSrcLines, linesLen, &src);
-        warp(&q, dMorphLines, dDstLines, linesLen, &dest);
+        warp(&q, sMorphLines, sSrcLines, linesLen, &src);
+        warp(&q, sMorphLines, sDstLines, linesLen, &dest);
 
         src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
         src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
@@ -369,8 +377,12 @@ int main(int argc,char *argv[]){
 	// TODO: 3 a: Occupancy API call
 	// TODO: 3 b: Define the 2D block size
 
-	// TODO: 2 a: Define shared-memory size
+	// Define shared-memory size
+    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*2;
 
+    // Block and grid size definition
+    dim3 blockSize(8,8);
+    dim3 gridSize(imgWidthDest/blockSize.x,imgHeightDest/blockSize.y);
 
 	// Timing code
 	cudaEvent_t start_total, stop_total;
@@ -390,10 +402,6 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
-		// Block and grid size definition
-        dim3 blockSize(8,8);
-    	dim3 gridSize(imgWidthDest/blockSize.x,imgHeightDest/blockSize.y);
-
 		// Timing code
 		float elapsed=0;
 		cudaEvent_t start, stop;
@@ -401,9 +409,8 @@ int main(int argc,char *argv[]){
 		cudaErrorCheck(cudaEventCreate(&stop));
 		cudaErrorCheck(cudaEventRecord(start, 0));
 
-		// For 2 b you will need to change the launch parameters.
         // Launch kernel
-		morphKernel<<<gridSize, blockSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
+		morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
 
 		// Timing code
 		cudaErrorCheck(cudaEventRecord(stop, 0));
