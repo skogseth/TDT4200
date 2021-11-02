@@ -289,11 +289,11 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
     extern __shared__ SimpleFeatureLine s[];
     SimpleFeatureLine* sSrcLines = s;
     SimpleFeatureLine* sDstLines = s + sizeof(SimpleFeatureLine)*linesLen;
-    SimpleFeatureLine* sMorphLines = s + sizeof(SimpleFeatureLine)*linesLen*2;
+    //SimpleFeatureLine* sMorphLines = s + sizeof(SimpleFeatureLine)*linesLen*2;
     if (threadIdx.x == 0 && threadIdx.y == 0) {
         memcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen);
         memcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen);
-        memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
+        //memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
     } // this operation can be parallellized for efficiency, so each thread copies a certain amount of lines
     __syncthreads();
 
@@ -311,8 +311,8 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
         q.y = i;
 
         // warping
-        warp(&q, sMorphLines, sSrcLines, linesLen, &src);
-        warp(&q, sMorphLines, sDstLines, linesLen, &dest);
+        warp(&q, dMorphLines, sSrcLines, linesLen, &src);
+        warp(&q, dMorphLines, sDstLines, linesLen, &dest);
 
         src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
         src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
@@ -380,7 +380,7 @@ int main(int argc,char *argv[]){
 	// TODO: 3 b: Define the 2D block size
 
 	// Define shared-memory size
-    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
+    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*2;
 
     // Block and grid size definition
     dim3 blockSize(8,8);
