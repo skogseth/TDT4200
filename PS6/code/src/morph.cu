@@ -287,15 +287,15 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// Move lines from global to shared memory (local memory for each block), both device side
     extern __shared__ SimpleFeatureLine s[];
-    SimpleFeatureLine* sSrcLines = s;
-    SimpleFeatureLine* sDstLines = s + sizeof(SimpleFeatureLine)*linesLen;
-    //SimpleFeatureLine* sMorphLines = s + sizeof(SimpleFeatureLine)*linesLen*2;
+    SimpleFeatureLine* sSrcLines = &s[0];
+    SimpleFeatureLine* sDstLines = &s[linesLen];// + sizeof(SimpleFeatureLine)*linesLen;
+    SimpleFeatureLine* sMorphLines = &s[2*linesLen];// + sizeof(SimpleFeatureLine)*linesLen*2;
     if (threadIdx.x == 0 && threadIdx.y == 0) {
         memcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen);
         memcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen);
-        //memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
+        memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
     } // this operation can be parallellized for efficiency, so each thread copies a certain amount of lines
-    __syncthreads();
+    __syncthreads();	
 
     // Get thread indices
     int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -311,8 +311,8 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
         q.y = i;
 
         // warping
-        warp(&q, dMorphLines, sSrcLines, linesLen, &src);
-        warp(&q, dMorphLines, sDstLines, linesLen, &dest);
+        warp(&q, sMorphLines, sSrcLines, linesLen, &src);
+        warp(&q, sMorphLines, sDstLines, linesLen, &dest);
 
         src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
         src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
@@ -380,7 +380,7 @@ int main(int argc,char *argv[]){
 	// TODO: 3 b: Define the 2D block size
 
 	// Define shared-memory size
-    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*2;
+    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
 
     // Block and grid size definition
     dim3 blockSize(8,8);
@@ -405,13 +405,11 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
 		// Timing code
-        /*
 		float elapsed=0;
 		cudaEvent_t start, stop;
 		cudaErrorCheck(cudaEventCreate(&start));
 		cudaErrorCheck(cudaEventCreate(&stop));
 		cudaErrorCheck(cudaEventRecord(start, 0));
-        */
 
         // Launch kernel
 		morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
@@ -420,14 +418,12 @@ int main(int argc,char *argv[]){
     	if (error != cudaSuccess) printf("kernel failed for i = %d\n%s\n", i, cudaGetErrorString(error));
 
 		// Timing code
-        /*
 		cudaErrorCheck(cudaEventRecord(stop, 0));
 		cudaErrorCheck(cudaEventSynchronize(stop));
 		cudaErrorCheck(cudaEventElapsedTime(&elapsed, start, stop));
 		cudaErrorCheck(cudaEventDestroy(start));
 		cudaErrorCheck(cudaEventDestroy(stop));
 		printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
-        */
 
 		// Copy data back to host from GPU (hMorphMap -> hMorphMapArr[i])
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
