@@ -383,8 +383,14 @@ int main(int argc,char *argv[]){
     cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
 
 
-	// TODO: 3 a: Occupancy API call
-	// TODO: 3 b: Define the 2D block size
+	// Calculating maximum block size
+    int maxBlockArea, minGridArea;
+    cudaOccupancyMaxPotentialBlockSize(&minGridArea, &maxBlockArea, morphKernel, 0, 0);
+    // https://stackoverflow.com/questions/28328437/is-there-a-way-to-find-the-2-whole-factors-of-an-int-that-are-closest-together
+    int blockSideX = (int)sqrt(double(maxBlockArea));
+    while (maxBlockArea % blockSideX != 0) blockSideX--;
+    dim3 maxBlockSize(blockSideX, maxBlockArea/blockSideX);
+    printf("Maximum block size: %d x %d\n", maxBlockSize.x, maxBlockSize.y);
 
 	// Define shared-memory size
     int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
@@ -392,6 +398,7 @@ int main(int argc,char *argv[]){
     // Block and grid size definition
     dim3 blockSize(8,8);
     dim3 gridSize(imgWidthDest/blockSize.x,imgHeightDest/blockSize.y);
+    printf("Chosen block size: %d x %d\n", blockSize.x, blockSize.y);
 
 	// Timing code
 	cudaEvent_t start_total, stop_total;
