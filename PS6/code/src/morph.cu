@@ -286,13 +286,13 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 
 __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// Move lines from global to shared memory (local memory for each block), both device side
-    extern __shared__ int s[];
-    SimpleFeatureLine* sSrcLines = s[0];
-    SimpleFeatureLine* sDstLines = s[linesLen];
-    SimpleFeatureLine* sMorphLines = s[2*linesLen];
-    cudaErrorCheck(cudaMemcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyDeviceToDevice));
-    cudaErrorCheck(cudaMemcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyDeviceToDevice));
-    cudaErrorCheck(cudaMemcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyDeviceToDevice));
+    extern __shared__ SimpleFeatureLine s[];
+    SimpleFeatureLine* sSrcLines = s;
+    SimpleFeatureLine* sDstLines = s + sizeof(SimpleFeatureLine)*linesLen;
+    SimpleFeatureLine* sMorphLines = s + sizeof(SimpleFeatureLine)*linesLen*2;
+    memcpy(sSrcLines, dSrcLines, sizeof(SimpleFeatureLine)*linesLen);
+    memcpy(sDstLines, dDstLines, sizeof(SimpleFeatureLine)*linesLen);
+    memcpy(sMorphLines, dMorphLines, sizeof(SimpleFeatureLine)*linesLen);
 
 
     // Get thread indices
