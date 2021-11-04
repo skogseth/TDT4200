@@ -1,8 +1,8 @@
 Connect to servers from campus:
-ssh <username>@snotra.idi.ntnu.no
+ssh hermask@snotra.idi.ntnu.no
 
 Connect to servers from outside campus:
-ssh -J <username>@login.stud.ntnu.no <username>@snotra.idi.ntnu.no
+ssh -J hermask@login.stud.ntnu.no hermask@snotra.idi.ntnu.no
 
 Exit ssh-session
 ctrl + d
