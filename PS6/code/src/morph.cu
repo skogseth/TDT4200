@@ -50,8 +50,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 int imgWidthOrig, imgHeightOrig, imgWidthDest, imgHeightDest;
 int steps;
 float p,a,b,t;
-pixel* hSrcImgMap;
-pixel* hDstImgMap;
+pixel *hSrcImgMap;
+pixel *hDstImgMap;
 
 //The name of input and output files
 string inputFileSrc;
@@ -63,7 +63,7 @@ string dataPath;
 string stepsStr;
 string pStr, aStr, bStr, tStr;
 
-void imgRead(string filename, pixel * &map, int &imgW, int &imgH) {
+void imgRead(string filename, pixel *(&map), int &imgW, int &imgH) {
     stbi_set_flip_vertically_on_load(true);
 
     int x, y, componentsPerPixel;
@@ -81,7 +81,7 @@ void imgRead(string filename, pixel * &map, int &imgW, int &imgH) {
     cout<<"Read the image file \""<<filename<<"\" successfully ."<<endl;
 }
 
-void imgWrite(string filename, pixel * map, int imgW, int imgH) {
+void imgWrite(string filename, pixel *map, int imgW, int imgH) {
     if(filename.empty()){
         cout<<"The output file name cannot be empty"<<endl;
         exit(1);
@@ -91,7 +91,7 @@ void imgWrite(string filename, pixel * map, int imgW, int imgH) {
     cout<<"Write the image into \""<<filename<<"\" file successfully."<<endl;
 }
 
-void loadLines(SimpleFeatureLine** linesSrc, SimpleFeatureLine** linesDst, int* linesLen, const char* name) {
+void loadLines(SimpleFeatureLine **linesSrc, SimpleFeatureLine **linesDst, int *linesLen, const char *name) {
 	FILE *f = fopen(name, "r");
 	if (f == NULL)
 	{
@@ -99,9 +99,9 @@ void loadLines(SimpleFeatureLine** linesSrc, SimpleFeatureLine** linesDst, int* 
 		exit(1);
 	}
 	fscanf(f, "%d", linesLen);
-	SimpleFeatureLine* srcLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*(*linesLen));
-	SimpleFeatureLine* dstLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*(*linesLen));
-	SimpleFeatureLine* line;
+	SimpleFeatureLine *srcLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*(*linesLen));
+	SimpleFeatureLine *dstLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*(*linesLen));
+	SimpleFeatureLine *line;
 	int fac = 2;
 
 	for(int i = 0; i < (*linesLen)*fac; i++) {
@@ -163,7 +163,7 @@ void parse(int argc, char *argv[]) {
 }
 
 
-void simpleLineInterpolate(SimpleFeatureLine* sourceLines, SimpleFeatureLine* destLines , SimpleFeatureLine** morphLines, int linesLen, float t) {
+void simpleLineInterpolate(SimpleFeatureLine *sourceLines, SimpleFeatureLine *destLines , SimpleFeatureLine **morphLines, int linesLen, float t) {
 	SimpleFeatureLine* interLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*linesLen);
 	for(int i=0; i<linesLen; i++){
 		interLines[i].startPoint.x = (1-t)*(sourceLines[i].startPoint.x) + t*(destLines[i].startPoint.x);
@@ -185,7 +185,7 @@ void simpleLineInterpolate(SimpleFeatureLine* sourceLines, SimpleFeatureLine* de
    p, a, b = parameters of the weight function
    output:
    src = the corresponding point */
-__host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* interLines, SimpleFeatureLine* sourceLines, const int sourceLinesSize, SimplePoint* src) {
+__host__ __device__ void warp(const SimplePoint *interPt, SimpleFeatureLine *interLines, SimpleFeatureLine *sourceLines, const int sourceLinesSize, SimplePoint *src) {
 	int i;
 	float interLength, srcLength;
 	float weight, weightSum, dist;
@@ -239,7 +239,7 @@ __host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* int
 	src->y = sum_y / weightSum;
 }
 
-__host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int dImgWidth) {
+__host__ __device__ void bilinear(pixel *Im, float row, float col, pixel *pix, int dImgWidth) {
 	int cm, cn, fm, fn;
 	double alpha, beta;
 
@@ -265,7 +265,7 @@ __host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, i
 	pix->a = 255;
 }
 
-__host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const SimplePoint* Dest_P, float t, pixel* imgSrc, pixel* imgDest, pixel* rgb, int dImgWidth) {
+__host__ __device__ void ColorInterPolate(const SimplePoint *Src_P, const SimplePoint *Dest_P, float t, pixel *imgSrc, pixel *imgDest, pixel *rgb, int dImgWidth) {
     pixel srcColor, destColor;
 
     bilinear(imgSrc, Src_P->y, Src_P->x, &srcColor, dImgWidth);
@@ -284,12 +284,12 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 ///////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////
 
-__global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
+__global__ void morphKernel(SimpleFeatureLine *dSrcLines, SimpleFeatureLine *dDstLines, SimpleFeatureLine *dMorphLines, pixel *dSrcImgMap, pixel *dDstImgMap, pixel *dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// Define shared memory for lines
     extern __shared__ SimpleFeatureLine s[];
-    SimpleFeatureLine* sSrcLines = &s[0];
-    SimpleFeatureLine* sDstLines = &s[linesLen];
-    SimpleFeatureLine* sMorphLines = &s[2*linesLen];
+    SimpleFeatureLine *sSrcLines = &s[0];
+    SimpleFeatureLine *sDstLines = &s[linesLen];
+    SimpleFeatureLine *sMorphLines = &s[2*linesLen];
 
     // Move lines from global to shared memory (work split between threads)
     int numThreads = blockDim.y * blockDim.x;
@@ -301,7 +301,7 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
         sMorphLines[i*numThreads + threadNmbr] = dMorphLines[i*numThreads + threadNmbr];
     }
 
-    // Synchronize all threads after write
+    // Synchronize all threads after memory copy, to make sure all lines are copied over before we start
     __syncthreads();
 
     // Get thread indices
@@ -336,7 +336,7 @@ __global__ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDs
 	}
 }
 
-int main(int argc,char *argv[]){
+int main(int argc, char *argv[]){
 
 	// Setup //////////////////
 	parse(argc, argv);
@@ -348,11 +348,11 @@ int main(int argc,char *argv[]){
 	loadLines(&hSrcLines, &hDstLines, &linesLen, inputFileLines.c_str());
 	printf("Loaded %d lines\n", linesLen);
 
-	pixel** hMorphMapArr = (pixel**) malloc(sizeof(pixel*) * (steps+1));
-	SimpleFeatureLine** hMorphLinesArr = (SimpleFeatureLine**) malloc(sizeof(SimpleFeatureLine*)*(steps+1));
+	pixel **hMorphMapArr = (pixel **) malloc(sizeof(pixel *) * (steps+1));
+	SimpleFeatureLine **hMorphLinesArr = (SimpleFeatureLine **) malloc(sizeof(SimpleFeatureLine*)*(steps+1));
 
 	for (int i = 0; i < steps+1; i++) {
-		hMorphMapArr[i] = (pixel*) malloc(sizeof(pixel)*imgHeightOrig*imgWidthOrig);
+		hMorphMapArr[i] = (pixel *) malloc(sizeof(pixel)*imgHeightOrig*imgWidthOrig);
 		simpleLineInterpolate(hSrcLines, hDstLines, &(hMorphLinesArr[i]), linesLen, t);
 	}
 	///////////////////////////
@@ -361,12 +361,8 @@ int main(int argc,char *argv[]){
 	int dImgHeight = imgWidthOrig; // 1024
 
     // Define pointers for device side memory
-    SimpleFeatureLine* dSrcLines;
-    SimpleFeatureLine* dDstLines;
-    SimpleFeatureLine* dMorphLines;
-    pixel* dSrcImgMap;
-    pixel* dDstImgMap;
-    pixel* dMorphMap;
+    SimpleFeatureLine *dSrcLines, *dDstLines, *dMorphLines;
+    pixel *dSrcImgMap, *dDstImgMap, *dMorphMap;
 
     // Allocate device side memory
     cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)*linesLen));
@@ -382,23 +378,23 @@ int main(int argc,char *argv[]){
     cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
     cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
 
+    // Define shared memory size (srcLines, dstLines & morphLines)
+    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
 
-	// Calculating maximum block size
+	// Finding maximum block area
     int maxBlockArea, minGridArea;
     cudaOccupancyMaxPotentialBlockSize(&minGridArea, &maxBlockArea, morphKernel, 0, 0);
-    // https://stackoverflow.com/questions/28328437/is-there-a-way-to-find-the-2-whole-factors-of-an-int-that-are-closest-together
+
+    // Calculating maximum block size (inspired by https://stackoverflow.com/questions/28328437/is-there-a-way-to-find-the-2-whole-factors-of-an-int-that-are-closest-together)
     int blockSideX = (int)sqrt(double(maxBlockArea));
     while (maxBlockArea % blockSideX != 0) blockSideX--;
     dim3 maxBlockSize(blockSideX, maxBlockArea/blockSideX);
     printf("Maximum block size: %d x %d\n", maxBlockSize.x, maxBlockSize.y);
 
-	// Define shared-memory size
-    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
-
     // Block and grid size definition
-    dim3 blockSize(8,8);
-    dim3 gridSize(imgWidthDest/blockSize.x,imgHeightDest/blockSize.y);
-    printf("Chosen block size: %d x %d\n", blockSize.x, blockSize.y);
+    dim3 blockSize = maxBlockSize; // my tests found 8x8 to be the optimal blocksize (tested 4x4, 8x8, 16x16 & 32x32)
+    dim3 gridSize(imgWidthDest/blockSize.x, imgHeightDest/blockSize.y);
+    printf("Actual block size: %d x %d\n", blockSize.x, blockSize.y);
 
 	// Timing code
 	cudaEvent_t start_total, stop_total;
@@ -410,8 +406,8 @@ int main(int argc,char *argv[]){
 	// The morphed image is saved in hMorphMapArr[i];
 	for (int i = 0; i < steps+1; i++) {
 		t = stepSize*i;
-		SimpleFeatureLine* hMorphLines = hMorphLinesArr[i];
-		pixel* hMorphMap = hMorphMapArr[i];
+		SimpleFeatureLine *hMorphLines = hMorphLinesArr[i];
+		pixel *hMorphMap = hMorphMapArr[i];
 		float dT = t;
 
         // Copy morph memory from host side to device side
@@ -427,9 +423,6 @@ int main(int argc,char *argv[]){
 
         // Launch kernel
 		morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
-
-        cudaError_t error = cudaGetLastError();
-    	if (error != cudaSuccess) printf("kernel failed for i = %d\n%s\n", i, cudaGetErrorString(error));
 
 		// Timing code
 		cudaErrorCheck(cudaEventRecord(stop, 0));
