@@ -68,3 +68,38 @@ Write the image into "output-png/output-1.000000.png" file successfully.
 
 Speedup (per morph): 467
 Speedup (total): 305
+
+
+
+After part 2:
+
+selbu:~/Documents/TDT4200/PS6/code$ ./morph images/man9.jpg images/man10.jpg lines/lines-man9-man10.txt output-png/ 10
+Read the image file "images/man9.jpg" successfully .
+Read the image file "images/man10.jpg" successfully .
+Loaded 33 lines
+Time in morphKernel (step 0): 7.18 ms
+Time in morphKernel (step 1): 7.19 ms
+Time in morphKernel (step 2): 7.18 ms
+Time in morphKernel (step 3): 7.19 ms
+Time in morphKernel (step 4): 7.18 ms
+Time in morphKernel (step 5): 7.18 ms
+Time in morphKernel (step 6): 7.18 ms
+Time in morphKernel (step 7): 7.18 ms
+Time in morphKernel (step 8): 7.18 ms
+Time in morphKernel (step 9): 7.18 ms
+Time in morphKernel (step 10): 7.17 ms
+Total time in GPU: 122.65 ms
+Write the image into "output-png/output-0.000000.png" file successfully.
+Write the image into "output-png/output-0.100000.png" file successfully.
+Write the image into "output-png/output-0.200000.png" file successfully.
+Write the image into "output-png/output-0.300000.png" file successfully.
+Write the image into "output-png/output-0.400000.png" file successfully.
+Write the image into "output-png/output-0.500000.png" file successfully.
+Write the image into "output-png/output-0.600000.png" file successfully.
+Write the image into "output-png/output-0.700000.png" file successfully.
+Write the image into "output-png/output-0.800000.png" file successfully.
+Write the image into "output-png/output-0.900000.png" file successfully.
+Write the image into "output-png/output-1.000000.png" file successfully.
+
+
+Approximately 7.18 milliseconds per morph and 123 milliseconds in total
