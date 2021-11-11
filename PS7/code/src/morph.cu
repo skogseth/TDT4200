@@ -405,12 +405,6 @@ int main(int argc,char *argv[]){
     dim3 blockSize(8, 8); // my tests found 8x8 to be the optimal blocksize (tested 4x4, 8x8, 16x16 & 32x32)
     dim3 gridSize(imgWidthDest/blockSize.x, imgHeightDest/blockSize.y);
 
-	// Timing code
-	cudaEvent_t start_total, stop_total;
-	cudaErrorCheck(cudaEventCreate(&start_total));
-	cudaErrorCheck(cudaEventCreate(&stop_total));
-	cudaErrorCheck( cudaEventRecord(start_total, 0));
-
 	// Computes a morphed image for each step based on hMorphLinesArr[i].
     // The morphed image is saved in hMorphMapArr[i];
     for (int i = 0; i < steps+1; i++) {
@@ -423,37 +417,12 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
         cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
 
-        // Timing code
-        float elapsed=0;
-        cudaEvent_t start, stop;
-        cudaErrorCheck(cudaEventCreate(&start));
-        cudaErrorCheck(cudaEventCreate(&stop));
-        cudaErrorCheck(cudaEventRecord(start, 0));
-
         // Launch kernel
         morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, imgWidthOrig, imgHeightOrig, dT);
-
-        // Timing code
-        cudaErrorCheck(cudaEventRecord(stop, 0));
-        cudaErrorCheck(cudaEventSynchronize(stop));
-        cudaErrorCheck(cudaEventElapsedTime(&elapsed, start, stop));
-        cudaErrorCheck(cudaEventDestroy(start));
-        cudaErrorCheck(cudaEventDestroy(stop));
-        printf("Time in morphKernel (step %d): %.2f ms\n", i, elapsed);
 
         // Copy data back to host from GPU (hMorphMap -> hMorphMapArr[i])
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
     }
-
-	// Timing code
-	float elapsed_total = 0;
-	cudaErrorCheck(cudaDeviceSynchronize());
-	cudaErrorCheck(cudaEventRecord(stop_total, 0));
-	cudaErrorCheck(cudaEventSynchronize (stop_total) );
-	cudaErrorCheck(cudaEventElapsedTime(&elapsed_total, start_total, stop_total) );
-	cudaErrorCheck(cudaEventDestroy(start_total));
-	cudaErrorCheck(cudaEventDestroy(stop_total));
-	printf("Total time in GPU: %.2f ms\n", elapsed_total);
 
     ///////////////////////////
 
