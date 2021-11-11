@@ -451,8 +451,8 @@ int main(int argc,char *argv[]){
 	for (int i = 0; i < steps+1; i++) {
 		pthread_join(threads[i], NULL);
 
-        //free(hMorphMapArr[i]);
-        //free(hMorphLinesArr[i]); ???
+        free(hMorphMapArr[i]);
+        free(hMorphLinesArr[i]);
 	}
 
     ///////////////////////////
@@ -461,8 +461,8 @@ int main(int argc,char *argv[]){
 
 
     // Free host side heap-allocated memory
-    //free(hMorphMapArr);
-	//free(hMorphLinesArr); ???
+    free(hMorphMapArr);
+	free(hMorphLinesArr);
     free(args_arr);
     free(threads);
 
