@@ -288,38 +288,6 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 ///////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////
 
-/*
-void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines, pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
-	for (int i = 0; i < dImgHeight; i++) {
-		for (int j = 0; j < dImgWidth; j++) {
-			pixel interColor;
-			SimplePoint dest;
-			SimplePoint src;
-			SimplePoint q;
-			q.x = j;
-			q.y = i;
-
-			// warping
-			warp(&q, dMorphLines, dSrcLines, linesLen, &src);
-			warp(&q, dMorphLines, dDstLines, linesLen, &dest);
-
-			src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
-			src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
-			dest.x = CLAMP<double>(dest.x, 0, dImgWidth-1);
-			dest.y = CLAMP<double>(dest.y, 0, dImgHeight-1);
-
-			// color interpolation
-			ColorInterPolate(&src, &dest, dT, dSrcImgMap, dDstImgMap, &interColor, dImgWidth);
-
-			dMorphMap[i*dImgWidth+j].r = interColor.r;
-			dMorphMap[i*dImgWidth+j].g = interColor.g;
-			dMorphMap[i*dImgWidth+j].b = interColor.b;
-			dMorphMap[i*dImgWidth+j].a = interColor.a;
-		}
-	}
-}
-*/
-
 __global__ void morphKernel(SimpleFeatureLine *dSrcLines, SimpleFeatureLine *dDstLines, SimpleFeatureLine *dMorphLines, pixel *dSrcImgMap, pixel *dDstImgMap, pixel *dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// Define shared memory for lines
     extern __shared__ SimpleFeatureLine s[];
@@ -495,12 +463,11 @@ int main(int argc,char *argv[]){
 		args_arr[i].hMorphMap = hMorphMapArr[i];
 		// TODO: Create pthreads and pass structs
 
-
 		// TODO: Move any relevant parallelizable code to pthread function
-    		float t_i = stepSize*i;
-    		string path = tempFile + "output-" + to_string(t_i) + ".png";
-    		imgWrite(path, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
-    		free(hMorphMapArr[i]);
+    	float t_i = stepSize*i;
+    	string path = tempFile + "output-" + to_string(t_i) + ".png";
+    	imgWrite(path, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
+    	free(hMorphMapArr[i]);
 	}
 	for (int i = 0; i < steps+1; i++) {
 		// TODO: Join pthreads
