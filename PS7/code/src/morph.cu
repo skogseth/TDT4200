@@ -53,7 +53,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 int imgWidthOrig, imgHeightOrig, imgWidthDest, imgHeightDest;
 int steps;
-float p,a,b,t;
+float p, a, b, t;
 pixel* hSrcImgMap;
 pixel* hDstImgMap;
 
@@ -376,19 +376,25 @@ int main(int argc,char *argv[]){
     SimpleFeatureLine *dSrcLines, *dDstLines, *dMorphLines;
     pixel *dSrcImgMap, *dDstImgMap, *dMorphMap;
 
-    // Allocate device side memory
-    cudaErrorCheck(cudaMalloc(&dSrcLines, sizeof(SimpleFeatureLine)*linesLen));
-    cudaErrorCheck(cudaMalloc(&dDstLines, sizeof(SimpleFeatureLine)*linesLen));
-    cudaErrorCheck(cudaMalloc(&dMorphLines, sizeof(SimpleFeatureLine)*linesLen));
-    cudaErrorCheck(cudaMalloc(&dSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
-    cudaErrorCheck(cudaMalloc(&dDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest));
-    cudaErrorCheck(cudaMalloc(&dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig));
+    {
+        int linesSize = sizeof(SimpleFeatureLine)*linesLen);
+        int imgSizeOrig = sizeof(pixel)*imgHeightOrig*imgWidthOrig);
+        int imgSizeDest = sizeof(pixel)*imgHeightDest*imgWidthDest);
 
-    // Copy src and dest memory from host side to device side
-    cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
-    cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
-    cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
-    cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, sizeof(pixel)*imgHeightDest*imgWidthDest, cudaMemcpyHostToDevice));
+        // Allocate device side memory
+        cudaErrorCheck(cudaMalloc(&dSrcLines, linesSize);
+        cudaErrorCheck(cudaMalloc(&dDstLines, linesSize);
+        cudaErrorCheck(cudaMalloc(&dMorphLines, linesSize);
+        cudaErrorCheck(cudaMalloc(&dSrcImgMap, imgSizeOrig);
+        cudaErrorCheck(cudaMalloc(&dDstImgMap, imgSizeDest);
+        cudaErrorCheck(cudaMalloc(&dMorphMap, imgSizeOrig);
+
+        // Copy src and dest memory from host side to device side
+        cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, linesSize, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, linesSize, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, imgSizeOrig, cudaMemcpyHostToDevice));
+        cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, imgSizeDest, cudaMemcpyHostToDevice));
+    }
 
     // Define shared memory size (srcLines, dstLines & morphLines)
     int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
@@ -449,15 +455,16 @@ int main(int argc,char *argv[]){
 	printf("Total time in GPU: %.2f ms\n", elapsed_total);
 
 
-	// Write morphed images to files
+
 
 	// Structs for pthread arguments (defined above main)
 	Args* args_arr;
-    args_arr = (Args*) malloc(sizeof(Args)*steps+1);
+    args_arr = (Args*) malloc( sizeof(Args) * (steps+1) );
 
-	// TODO: Malloc space for pthreads
+	// Malloc space for pthreads
+    pthread_t* threads = (pthread_t*) malloc( sizeof(pthread_t) * (steps+1) );
 
-
+    // Write morphed images to files
 	for (int i = 0; i < steps+1; i++) {
 		args_arr[i].i = i;
 		args_arr[i].hMorphMap = hMorphMapArr[i];
@@ -468,14 +475,15 @@ int main(int argc,char *argv[]){
     	string path = tempFile + "output-" + to_string(t_i) + ".png";
     	imgWrite(path, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
     	free(hMorphMapArr[i]);
+        //free(hMorphLinesArr[i]); ???
 	}
 	for (int i = 0; i < steps+1; i++) {
-		// TODO: Join pthreads
+		//pthread_join(threads[i], NULL);
 	}
 
     // Free host side heap-allocated memory
     free(hMorphMapArr);
-	free(hMorphLinesArr);
+	//free(hMorphLinesArr); ???
 
 	// Free the device side heap-allocated memory
     cudaFree(dSrcLines);
