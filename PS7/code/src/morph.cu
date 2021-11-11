@@ -475,9 +475,9 @@ int main(int argc,char *argv[]){
 
 
 void* pthread_imgWrite(void* args) {
-    Args args_ = (Args) *args;
-    float t_i = stepSize * args_.i;
+    Args* args_ptr = (Args*) args;
+    float t_i = stepSize * (*args_ptr).i;
     string path = tempFile + "output-" + to_string(t_i) + ".png";
-    imgWrite(path, args_.hMorphMap, imgWidthOrig, imgHeightOrig);
+    imgWrite(path, (*args_ptr).hMorphMap, imgWidthOrig, imgHeightOrig);
     return NULL;
 }
