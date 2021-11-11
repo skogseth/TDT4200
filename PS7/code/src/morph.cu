@@ -282,12 +282,7 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 }
 
 
-///////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////
-///// DO NOT TOUCH CODE ABOVE. YOU ONLY NEED TO CHANGE THE FUNCTIONS BELOW ////////
-///////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////
-
+// Morphing function
 __global__ void morphKernel(SimpleFeatureLine *dSrcLines, SimpleFeatureLine *dDstLines, SimpleFeatureLine *dMorphLines, pixel *dSrcImgMap, pixel *dDstImgMap, pixel *dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
 	// Define shared memory for lines
     extern __shared__ SimpleFeatureLine s[];
@@ -340,6 +335,7 @@ __global__ void morphKernel(SimpleFeatureLine *dSrcLines, SimpleFeatureLine *dDs
 	}
 }
 
+
 typedef struct Args_struct {
 	int i;
 	pixel* hMorphMap;
@@ -348,9 +344,12 @@ typedef struct Args_struct {
 void* pthread_imgWrite(void* args);
 float stepSize;
 
+
+
 int main(int argc,char *argv[]){
 
 	// Setup //////////////////
+
 	parse(argc, argv);
 	tempFile = outputPath;
 	stepSize = 1.0/steps;
@@ -367,15 +366,18 @@ int main(int argc,char *argv[]){
 		hMorphMapArr[i] = (pixel*) malloc(sizeof(pixel)*imgHeightOrig*imgWidthOrig);
 		simpleLineInterpolate(hSrcLines, hDstLines, &(hMorphLinesArr[i]), linesLen, t);
 	}
+
 	///////////////////////////
 
-	int dImgWidth = imgHeightOrig; // 1024
-	int dImgHeight = imgWidthOrig; // 1024
+
+
+    // Image morphing /////////
 
     // Define pointers for device side memory
     SimpleFeatureLine *dSrcLines, *dDstLines, *dMorphLines;
     pixel *dSrcImgMap, *dDstImgMap, *dMorphMap;
 
+    // Allocate and move memory from host side to device side
     {
         int linesSize = sizeof(SimpleFeatureLine)*linesLen;
         int imgSizeOrig = sizeof(pixel)*imgHeightOrig*imgWidthOrig;
@@ -402,7 +404,6 @@ int main(int argc,char *argv[]){
     // Block and grid size definition
     dim3 blockSize(8, 8); // my tests found 8x8 to be the optimal blocksize (tested 4x4, 8x8, 16x16 & 32x32)
     dim3 gridSize(imgWidthDest/blockSize.x, imgHeightDest/blockSize.y);
-    printf("Actual block size: %d x %d\n", blockSize.x, blockSize.y);
 
 	// Timing code
 	cudaEvent_t start_total, stop_total;
@@ -430,7 +431,7 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaEventRecord(start, 0));
 
         // Launch kernel
-        morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
+        morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, imgWidthOrig, imgHeightOrig, dT);
 
         // Timing code
         cudaErrorCheck(cudaEventRecord(stop, 0));
@@ -454,8 +455,11 @@ int main(int argc,char *argv[]){
 	cudaErrorCheck(cudaEventDestroy(stop_total));
 	printf("Total time in GPU: %.2f ms\n", elapsed_total);
 
+    ///////////////////////////
 
 
+
+    // Saving image ///////////
 
 	// Structs for pthread arguments (defined above main)
 	Args* args_arr;
@@ -480,6 +484,11 @@ int main(int argc,char *argv[]){
 	for (int i = 0; i < steps+1; i++) {
 		//pthread_join(threads[i], NULL);
 	}
+
+    ///////////////////////////
+
+
+
 
     // Free host side heap-allocated memory
     free(hMorphMapArr);
