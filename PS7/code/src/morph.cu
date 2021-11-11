@@ -444,6 +444,8 @@ int main(int argc,char *argv[]){
 		args_arr[i].i = i;
 		args_arr[i].hMorphMap = hMorphMapArr[i];
 
+        printf("Trying to create thread %d\n", i);
+
         pthread_create(threads+i, NULL, &pthread_imgWrite, args_arr+i);
 
     	free(hMorphMapArr[i]);
@@ -478,8 +480,10 @@ int main(int argc,char *argv[]){
 
 void* pthread_imgWrite(void* args) {
     Args* args_ptr = (Args*) args;
+    printf("Thread %d checking in\n", args_ptr->i);
     float t_i = stepSize * args_ptr->i;
     string path = tempFile + "output-" + to_string(t_i) + ".png";
     imgWrite(path, args_ptr->hMorphMap, imgWidthOrig, imgHeightOrig);
+    printf("Thread %d checking out\n", args_ptr->i);
     return NULL;
 }
