@@ -424,6 +424,8 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
     }
 
+    printf("Image successfully morphed\n");
+
     ///////////////////////////
 
 
@@ -441,17 +443,14 @@ int main(int argc,char *argv[]){
 	for (int i = 0; i < steps+1; i++) {
 		args_arr[i].i = i;
 		args_arr[i].hMorphMap = hMorphMapArr[i];
-		// TODO: Create pthreads and pass structs
 
-		// TODO: Move any relevant parallelizable code to pthread function
-    	float t_i = stepSize*i;
-    	string path = tempFile + "output-" + to_string(t_i) + ".png";
-    	imgWrite(path, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
+        pthread_create(&threads[i], NULL, &pthread_imgWrite, (void*) &args_arr[i]);
+
     	free(hMorphMapArr[i]);
         //free(hMorphLinesArr[i]); ???
 	}
 	for (int i = 0; i < steps+1; i++) {
-		//pthread_join(threads[i], NULL);
+		pthread_join(threads[i], NULL);
 	}
 
     ///////////////////////////
@@ -476,6 +475,9 @@ int main(int argc,char *argv[]){
 
 
 void* pthread_imgWrite(void* args) {
-    // TODO: Fill in parallelized code
+    Args args_ = (Args) *args;
+    float t_i = stepSize * args_.i;
+    string path = tempFile + "output-" + to_string(t_i) + ".png";
+    imgWrite(path, args_.hMorphMap, imgWidthOrig, imgHeightOrig);
     return NULL;
 }
