@@ -67,7 +67,7 @@ string dataPath;
 string stepsStr;
 string pStr, aStr, bStr, tStr;
 
-void imgRead(string filename, pixel * &map, int &imgW, int &imgH){
+void imgRead(string filename, pixel* &map, int &imgW, int &imgH){
     stbi_set_flip_vertically_on_load(true);
 
     int x, y, componentsPerPixel;
@@ -85,7 +85,7 @@ void imgRead(string filename, pixel * &map, int &imgW, int &imgH){
     cout<<"Read the image file \""<<filename<<"\" successfully ."<<endl;
 }
 
-void imgWrite(string filename, pixel * map, int imgW, int imgH){
+void imgWrite(string filename, pixel* map, int imgW, int imgH){
     if(filename.empty()){
         cout<<"The output file name cannot be empty"<<endl;
         exit(1);
@@ -444,13 +444,15 @@ int main(int argc,char *argv[]){
 		args_arr[i].i = i;
 		args_arr[i].hMorphMap = hMorphMapArr[i];
 
-        pthread_create(threads+i, NULL, &pthread_imgWrite, args_arr+i);
+        printf("Trying to create thread %d\n", i);
 
-    	free(hMorphMapArr[i]);
-        //free(hMorphLinesArr[i]); ???
+        pthread_create(threads+i, NULL, &pthread_imgWrite, args_arr+i);
 	}
 	for (int i = 0; i < steps+1; i++) {
 		pthread_join(threads[i], NULL);
+
+        //free(hMorphMapArr[i]);
+        //free(hMorphLinesArr[i]); ???
 	}
 
     ///////////////////////////
@@ -459,7 +461,7 @@ int main(int argc,char *argv[]){
 
 
     // Free host side heap-allocated memory
-    free(hMorphMapArr);
+    //free(hMorphMapArr);
 	//free(hMorphLinesArr); ???
     free(args_arr);
     free(threads);
@@ -481,7 +483,7 @@ void* pthread_imgWrite(void* args) {
     printf("Thread %d checking in\n", args_ptr->i);
     float t_i = stepSize * args_ptr->i;
     string path = tempFile + "output-" + to_string(t_i) + ".png";
-    //imgWrite(path, args_ptr->hMorphMap, imgWidthOrig, imgHeightOrig);
+    imgWrite(path, args_ptr->hMorphMap, imgWidthOrig, imgHeightOrig);
     printf("Thread %d checking out\n", args_ptr->i);
     return NULL;
 }
