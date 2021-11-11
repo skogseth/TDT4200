@@ -426,7 +426,7 @@ int main(int argc,char *argv[]){
     int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
 
     // Block and grid size definition
-    dim3 blockSize = (8, 8); // my tests found 8x8 to be the optimal blocksize (tested 4x4, 8x8, 16x16 & 32x32)
+    dim3 blockSize(8, 8); // my tests found 8x8 to be the optimal blocksize (tested 4x4, 8x8, 16x16 & 32x32)
     dim3 gridSize(imgWidthDest/blockSize.x, imgHeightDest/blockSize.y);
     printf("Actual block size: %d x %d\n", blockSize.x, blockSize.y);
 
