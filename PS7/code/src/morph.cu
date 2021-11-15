@@ -12,6 +12,8 @@
 #include <cmath>
 #include <pthread.h>
 
+#include <chrono> // For timing
+
 #ifdef __APPLE__
 #  include <GLUT/glut.h>
 #else
@@ -433,8 +435,7 @@ int main(int argc,char *argv[]){
     // Saving image ///////////
 
     // Timing
-    struct timeval start, end;
-    gettimeofday(start, NULL);
+    auto start = chrono::high_resolution_clock::now();
 
 	// Structs for pthread arguments (defined above main)
 	Args* args_arr;
@@ -458,8 +459,8 @@ int main(int argc,char *argv[]){
 	}
 
     // Timing
-    gettimeofday(end, NULL);
-    printf("Time spent on saving files: %d\n", WALLTIME(end) - WALLTIME(start) );
+    auto stop = chrono::high_resolution_clock::now();
+    printf("Time spent on saving files: %d\n", chrono::duration_cast<chrono::milliseconds>(t2-t1).count() );
 
     ///////////////////////////
 
