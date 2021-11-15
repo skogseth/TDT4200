@@ -514,3 +514,24 @@ void* pthread_imgWrite(void* args) {
     imgWrite(path, args_ptr->hMorphMap, imgWidthOrig, imgHeightOrig);
     return NULL;
 }
+
+/*
+Non-parellelized code:
+Time spent on loading images & lines: 139 ms
+Time spent on morphing: 39204 ms
+Time spent on saving files: 7805 ms
+Time spent in total: 47149 ms
+
+
+Parallelized code:
+Time spent on loading images & lines: 136 ms
+Time spent on morphing: 547 ms
+Time spent on saving files: 3818 ms
+Time spent in total: 4507 ms
+
+Speedup:
+Loading: ~1 (expected as nothing is done)
+Morphing: ~72 (lower than measured last time, maybe due to measurement method)
+Saving: ~2 (pretty good tbh, can't expect a lot more due to i/o)
+Total: ~10 (damn!)
+*/

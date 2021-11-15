@@ -334,12 +334,7 @@ void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, Sim
 	}
 }
 
-typedef struct Args_struct {
-	int i;
-	pixel* hMorphMap;
-} Args;
 
-void* pthread_imgWrite(void* args);
 float stepSize;
 
 int main(int argc,char *argv[]){
@@ -433,10 +428,4 @@ int main(int argc,char *argv[]){
     printf("Time spent in total: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_tot-start_time_tot).count() );
 
 	return 0;
-}
-
-
-void* pthread_imgWrite(void* args) {
-    // TODO: Fill in parallelized code
-    return NULL;
 }
