@@ -436,16 +436,6 @@ int main(int argc,char *argv[]){
     // Free host side heap-allocated memory
     free(hMorphMapArr);
 	free(hMorphLinesArr);
-    free(args_arr);
-    free(threads);
-
-	// Free the device side heap-allocated memory
-    cudaFree(dSrcLines);
-    cudaFree(dDstLines);
-    cudaFree(dMorphLines);
-    cudaFree(dSrcImgMap);
-    cudaFree(dDstImgMap);
-    cudaFree(dMorphMap);
 
     // Timing
     auto stop_time_tot = chrono::high_resolution_clock::now();
