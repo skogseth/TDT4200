@@ -350,10 +350,13 @@ float stepSize;
 
 int main(int argc,char *argv[]){
 
-    // Timing
+    // Timing (https://stackoverflow.com/questions/12231166/timing-algorithm-clock-vs-time-in-c)
     auto start_time_tot = chrono::high_resolution_clock::now();
 
 	// Setup //////////////////
+
+    // Timing
+    auto start_time_load = chrono::high_resolution_clock::now();
 
 	parse(argc, argv);
 	tempFile = outputPath;
@@ -371,6 +374,10 @@ int main(int argc,char *argv[]){
 		hMorphMapArr[i] = (pixel*) malloc(sizeof(pixel)*imgHeightOrig*imgWidthOrig);
 		simpleLineInterpolate(hSrcLines, hDstLines, &(hMorphLinesArr[i]), linesLen, t);
 	}
+
+    // Timing
+    auto stop_time_load = chrono::high_resolution_clock::now();
+    printf("Time spent on loading images & lines: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_load-start_time_load).count() );
 
 	///////////////////////////
 
@@ -432,6 +439,7 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
     }
 
+    // Timing
     auto stop_time_morph = chrono::high_resolution_clock::now();
     printf("Time spent on morphing: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_morph-start_time_morph).count() );
 
