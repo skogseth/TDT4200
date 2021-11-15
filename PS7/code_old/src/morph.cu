@@ -382,8 +382,8 @@ int main(int argc,char *argv[]){
     // Timing
     auto start_time_morph = chrono::high_resolution_clock::now();
 
-	int dImgWidth = imgHeightOrig; // 1024
-	int dImgHeight = imgWidthOrig; // 1024
+	int hImgWidth = imgHeightOrig; // 1024
+	int hImgHeight = imgWidthOrig; // 1024
 
 	// Computes a morphed image for each step based on hMorphLinesArr[i].
 	// The morphed image is saved in hMorphMapArr[i];
@@ -391,17 +391,8 @@ int main(int argc,char *argv[]){
 		t = stepSize*i;
 		SimpleFeatureLine* hMorphLines = hMorphLinesArr[i];
 		pixel* hMorphMap = hMorphMapArr[i];
-		float dT = t;
 
-		// Delete these lines and replace with CUDA variables
-		SimpleFeatureLine* dSrcLines = hSrcLines;
-		SimpleFeatureLine* dDstLines = hDstLines;
-		SimpleFeatureLine* dMorphLines = hMorphLines;
-		pixel* dSrcImgMap = hSrcImgMap;
-		pixel* dDstImgMap = hDstImgMap;
-		pixel* dMorphMap = hMorphMap;
-
-		morphKernel(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
+		morphKernel(hSrcLines, hDstLines, hMorphLines, hSrcImgMap, hDstImgMap, hMorphMap, linesLen, hImgWidth, hImgHeight, t);
 	}
 
     // Timing
