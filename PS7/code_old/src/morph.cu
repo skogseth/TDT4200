@@ -40,12 +40,15 @@ typedef struct SimpleFeatureLine_struct {
 } SimpleFeatureLine;
 
 
-template <typename T> __host__ __device__ T CLAMP(T value, T low, T high) {
+template <typename T>
+__host__ __device__ T CLAMP(T value, T low, T high)
+{
         return (value < low) ? low : ((value > high) ? high : value);
 }
 
 #define cudaErrorCheck(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
 	if (code != cudaSuccess) {
 		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
 		if (abort) exit(code);
@@ -55,7 +58,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 int imgWidthOrig, imgHeightOrig, imgWidthDest, imgHeightDest;
 int steps;
-float p, a, b, t;
+float p,a,b,t;
 pixel* hSrcImgMap;
 pixel* hDstImgMap;
 
@@ -69,7 +72,7 @@ string dataPath;
 string stepsStr;
 string pStr, aStr, bStr, tStr;
 
-void imgRead(string filename, pixel* &map, int &imgW, int &imgH){
+void imgRead(string filename, pixel * &map, int &imgW, int &imgH){
     stbi_set_flip_vertically_on_load(true);
 
     int x, y, componentsPerPixel;
@@ -87,7 +90,7 @@ void imgRead(string filename, pixel* &map, int &imgW, int &imgH){
     cout<<"Read the image file \""<<filename<<"\" successfully ."<<endl;
 }
 
-void imgWrite(string filename, pixel* map, int imgW, int imgH){
+void imgWrite(string filename, pixel * map, int imgW, int imgH){
     if(filename.empty()){
         cout<<"The output file name cannot be empty"<<endl;
         exit(1);
@@ -169,7 +172,9 @@ void parse(int argc, char *argv[]) {
 }
 
 
-void simpleLineInterpolate(SimpleFeatureLine* sourceLines, SimpleFeatureLine* destLines , SimpleFeatureLine** morphLines, int linesLen, float t) {
+void simpleLineInterpolate(SimpleFeatureLine* sourceLines,
+                     SimpleFeatureLine* destLines , SimpleFeatureLine** morphLines, int linesLen, float t)
+{
 	SimpleFeatureLine* interLines = (SimpleFeatureLine*) malloc(sizeof(SimpleFeatureLine)*linesLen);
 	for(int i=0; i<linesLen; i++){
 		interLines[i].startPoint.x = (1-t)*(sourceLines[i].startPoint.x) + t*(destLines[i].startPoint.x);
@@ -191,7 +196,9 @@ void simpleLineInterpolate(SimpleFeatureLine* sourceLines, SimpleFeatureLine* de
    p, a, b = parameters of the weight function
    output:
    src = the corresponding point */
-__host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* interLines, SimpleFeatureLine* sourceLines, const int sourceLinesSize, SimplePoint* src) {
+__host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* interLines,
+          SimpleFeatureLine* sourceLines, const int sourceLinesSize, SimplePoint* src)
+{
 	int i;
 	float interLength, srcLength;
 	float weight, weightSum, dist;
@@ -245,7 +252,8 @@ __host__ __device__ void warp(const SimplePoint* interPt, SimpleFeatureLine* int
 	src->y = sum_y / weightSum;
 }
 
-__host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int dImgWidth) {
+__host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, int dImgWidth)
+{
 	int cm, cn, fm, fn;
 	double alpha, beta;
 
@@ -271,7 +279,10 @@ __host__ __device__ void bilinear(pixel* Im, float row, float col, pixel* pix, i
 	pix->a = 255;
 }
 
-__host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const SimplePoint* Dest_P, float t, pixel* imgSrc, pixel* imgDest, pixel* rgb, int dImgWidth) {
+__host__ __device__ void ColorInterPolate(const SimplePoint* Src_P,
+                      const SimplePoint* Dest_P, float t,
+                      pixel* imgSrc, pixel* imgDest, pixel* rgb, int dImgWidth)
+{
     pixel srcColor, destColor;
 
     bilinear(imgSrc, Src_P->y, Src_P->x, &srcColor, dImgWidth);
@@ -284,59 +295,44 @@ __host__ __device__ void ColorInterPolate(const SimplePoint* Src_P, const Simple
 }
 
 
-// Morphing function
-__global__ void morphKernel(SimpleFeatureLine *dSrcLines, SimpleFeatureLine *dDstLines, SimpleFeatureLine *dMorphLines, pixel *dSrcImgMap, pixel *dDstImgMap, pixel *dMorphMap, int linesLen, int dImgWidth, int dImgHeight, float dT) {
-	// Define shared memory for lines
-    extern __shared__ SimpleFeatureLine s[];
-    SimpleFeatureLine *sSrcLines = &s[0];
-    SimpleFeatureLine *sDstLines = &s[linesLen];
-    SimpleFeatureLine *sMorphLines = &s[2*linesLen];
+///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+///// DO NOT TOUCH CODE ABOVE. YOU ONLY NEED TO CHANGE THE FUNCTIONS BELOW ////////
+///////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
 
-    // Move lines from global to shared memory (work split between threads)
-    int numThreads = blockDim.y * blockDim.x;
-    int threadNmbr = threadIdx.y * blockDim.x + threadIdx.x;
-    int numLinesForThread = linesLen / numThreads + (threadNmbr < linesLen % numThreads ? 1 : 0);
-    for (int i = 0; i < numLinesForThread; i++) {
-        sSrcLines[i*numThreads + threadNmbr] = dSrcLines[i*numThreads + threadNmbr];
-        sDstLines[i*numThreads + threadNmbr] = dDstLines[i*numThreads + threadNmbr];
-        sMorphLines[i*numThreads + threadNmbr] = dMorphLines[i*numThreads + threadNmbr];
-    }
+void morphKernel(SimpleFeatureLine* dSrcLines, SimpleFeatureLine* dDstLines, SimpleFeatureLine* dMorphLines,
+		pixel* dSrcImgMap, pixel* dDstImgMap,  pixel* dMorphMap,
+		int linesLen, int dImgWidth, int dImgHeight, float dT) {
 
-    // Synchronize all threads after memory copy, to make sure all lines are copied over before we start
-    __syncthreads();
+	for (int i = 0; i < dImgHeight; i++) {
+		for (int j = 0; j < dImgWidth; j++) {
+			pixel interColor;
+			SimplePoint dest;
+			SimplePoint src;
+			SimplePoint q;
+			q.x = j;
+			q.y = i;
 
-    // Get thread indices
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-	int j = threadIdx.x + blockIdx.x * blockDim.x;
+			// warping
+			warp(&q, dMorphLines, dSrcLines, linesLen, &src);
+			warp(&q, dMorphLines, dDstLines, linesLen, &dest);
 
-    // If thread indices are within bounds, execute morphing
-    if (i < dImgHeight && j < dImgWidth) {
-        pixel interColor;
-        SimplePoint dest;
-        SimplePoint src;
-        SimplePoint q;
-        q.x = j;
-        q.y = i;
+			src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
+			src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
+			dest.x = CLAMP<double>(dest.x, 0, dImgWidth-1);
+			dest.y = CLAMP<double>(dest.y, 0, dImgHeight-1);
 
-        // warping
-        warp(&q, sMorphLines, sSrcLines, linesLen, &src);
-        warp(&q, sMorphLines, sDstLines, linesLen, &dest);
+			// color interpolation
+			ColorInterPolate(&src, &dest, dT, dSrcImgMap, dDstImgMap, &interColor, dImgWidth);
 
-        src.x = CLAMP<double>(src.x, 0, dImgWidth-1);
-        src.y = CLAMP<double>(src.y, 0, dImgHeight-1);
-        dest.x = CLAMP<double>(dest.x, 0, dImgWidth-1);
-        dest.y = CLAMP<double>(dest.y, 0, dImgHeight-1);
-
-        // color interpolation
-        ColorInterPolate(&src, &dest, dT, dSrcImgMap, dDstImgMap, &interColor, dImgWidth);
-
-        dMorphMap[i*dImgWidth+j].r = interColor.r;
-        dMorphMap[i*dImgWidth+j].g = interColor.g;
-        dMorphMap[i*dImgWidth+j].b = interColor.b;
-        dMorphMap[i*dImgWidth+j].a = interColor.a;
+			dMorphMap[i*dImgWidth+j].r = interColor.r;
+			dMorphMap[i*dImgWidth+j].g = interColor.g;
+			dMorphMap[i*dImgWidth+j].b = interColor.b;
+			dMorphMap[i*dImgWidth+j].a = interColor.a;
+		}
 	}
 }
-
 
 typedef struct Args_struct {
 	int i;
@@ -345,8 +341,6 @@ typedef struct Args_struct {
 
 void* pthread_imgWrite(void* args);
 float stepSize;
-
-
 
 int main(int argc,char *argv[]){
 
@@ -388,59 +382,27 @@ int main(int argc,char *argv[]){
     // Timing
     auto start_time_morph = chrono::high_resolution_clock::now();
 
-    int dImgWidth = imgHeightOrig; // 1024
+	int dImgWidth = imgHeightOrig; // 1024
 	int dImgHeight = imgWidthOrig; // 1024
 
-    // Define pointers for device side memory
-    SimpleFeatureLine *dSrcLines, *dDstLines, *dMorphLines;
-    pixel *dSrcImgMap, *dDstImgMap, *dMorphMap;
-
-    // Allocate and move memory from host side to device side
-    {
-        int linesSize = sizeof(SimpleFeatureLine)*linesLen;
-        int imgSizeOrig = sizeof(pixel)*imgHeightOrig*imgWidthOrig;
-        int imgSizeDest = sizeof(pixel)*imgHeightDest*imgWidthDest;
-
-        // Allocate device side memory
-        cudaErrorCheck(cudaMalloc(&dSrcLines, linesSize));
-        cudaErrorCheck(cudaMalloc(&dDstLines, linesSize));
-        cudaErrorCheck(cudaMalloc(&dMorphLines, linesSize));
-        cudaErrorCheck(cudaMalloc(&dSrcImgMap, imgSizeOrig));
-        cudaErrorCheck(cudaMalloc(&dDstImgMap, imgSizeDest));
-        cudaErrorCheck(cudaMalloc(&dMorphMap, imgSizeOrig));
-
-        // Copy src and dest memory from host side to device side
-        cudaErrorCheck(cudaMemcpy(dSrcLines, hSrcLines, linesSize, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dDstLines, hDstLines, linesSize, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dSrcImgMap, hSrcImgMap, imgSizeOrig, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dDstImgMap, hDstImgMap, imgSizeDest, cudaMemcpyHostToDevice));
-	}
-
-    // Define shared memory size (srcLines, dstLines & morphLines)
-    int sharedMemSize = sizeof(SimpleFeatureLine)*linesLen*3;
-
-    // Block and grid size definition
-    dim3 blockSize(8, 8); // my tests found 8x8 to be the optimal blocksize (tested 4x4, 8x8, 16x16 & 32x32)
-    dim3 gridSize(imgWidthDest/blockSize.x, imgHeightDest/blockSize.y);
-
 	// Computes a morphed image for each step based on hMorphLinesArr[i].
-    // The morphed image is saved in hMorphMapArr[i];
-    for (int i = 0; i < steps+1; i++) {
-        t = stepSize*i;
-        SimpleFeatureLine *hMorphLines = hMorphLinesArr[i];
-        pixel *hMorphMap = hMorphMapArr[i];
-        float dT = t;
+	// The morphed image is saved in hMorphMapArr[i];
+	for (int i = 0; i < steps+1; i++) {
+		t = stepSize*i;
+		SimpleFeatureLine* hMorphLines = hMorphLinesArr[i];
+		pixel* hMorphMap = hMorphMapArr[i];
+		float dT = t;
 
-        // Copy morph memory from host side to device side
-        cudaErrorCheck(cudaMemcpy(dMorphLines, hMorphLines, sizeof(SimpleFeatureLine)*linesLen, cudaMemcpyHostToDevice));
-        cudaErrorCheck(cudaMemcpy(dMorphMap, hMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyHostToDevice));
+		// Delete these lines and replace with CUDA variables
+		SimpleFeatureLine* dSrcLines = hSrcLines;
+		SimpleFeatureLine* dDstLines = hDstLines;
+		SimpleFeatureLine* dMorphLines = hMorphLines;
+		pixel* dSrcImgMap = hSrcImgMap;
+		pixel* dDstImgMap = hDstImgMap;
+		pixel* dMorphMap = hMorphMap;
 
-        // Launch kernel
-        morphKernel<<<gridSize, blockSize, sharedMemSize>>>(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
-
-        // Copy data back to host from GPU (hMorphMap -> hMorphMapArr[i])
-        cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
-    }
+		morphKernel(dSrcLines, dDstLines, dMorphLines, dSrcImgMap, dDstImgMap, dMorphMap, linesLen, dImgWidth, dImgHeight, dT);
+	}
 
     // Timing
     auto stop_time_morph = chrono::high_resolution_clock::now();
@@ -450,30 +412,17 @@ int main(int argc,char *argv[]){
 
 
 
-    // Saving image ///////////
+	// Saving image ///////////
 
     // Timing
     auto start_time_save = chrono::high_resolution_clock::now();
 
-	// Structs for pthread arguments (defined above main)
-	Args* args_arr;
-    args_arr = (Args*) malloc( sizeof(Args) * (steps+1) );
-
-	// Malloc space for pthreads
-    pthread_t* threads = (pthread_t*) malloc( sizeof(pthread_t) * (steps+1) );
-
-    // Write morphed images to files
 	for (int i = 0; i < steps+1; i++) {
-		args_arr[i].i = i;
-		args_arr[i].hMorphMap = hMorphMapArr[i];
-
-        pthread_create(threads+i, NULL, &pthread_imgWrite, args_arr+i);
-	}
-	for (int i = 0; i < steps+1; i++) {
-		pthread_join(threads[i], NULL);
-
+        float t_i = stepSize*i;
+        string path = tempFile + "output-" + to_string(t_i) + ".png";
+        imgWrite(path, hMorphMapArr[i], imgWidthOrig, imgHeightOrig);
         free(hMorphMapArr[i]);
-        free(hMorphLinesArr[i]);
+    	free(hMorphLinesArr[i]);
 	}
 
     // Timing
@@ -481,7 +430,6 @@ int main(int argc,char *argv[]){
     printf("Time spent on saving files: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_save-start_time_save).count() );
 
     ///////////////////////////
-
 
 
 
@@ -508,9 +456,6 @@ int main(int argc,char *argv[]){
 
 
 void* pthread_imgWrite(void* args) {
-    Args* args_ptr = (Args*) args;
-    float t_i = stepSize * args_ptr->i;
-    string path = tempFile + "output-" + to_string(t_i) + ".png";
-    imgWrite(path, args_ptr->hMorphMap, imgWidthOrig, imgHeightOrig);
+    // TODO: Fill in parallelized code
     return NULL;
 }
