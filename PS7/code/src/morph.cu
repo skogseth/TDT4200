@@ -460,7 +460,7 @@ int main(int argc,char *argv[]){
 
     // Timing
     auto stop = chrono::high_resolution_clock::now();
-    printf("Time spent on saving files: %d\n", chrono::duration_cast<chrono::milliseconds>(t2-t1).count() );
+    printf("Time spent on saving files: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop-start).count() );
 
     ///////////////////////////
 
