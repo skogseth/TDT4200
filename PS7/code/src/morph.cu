@@ -432,6 +432,10 @@ int main(int argc,char *argv[]){
 
     // Saving image ///////////
 
+    // Timing
+    struct timeval start, end;
+    gettimeofday(start, NULL);
+
 	// Structs for pthread arguments (defined above main)
 	Args* args_arr;
     args_arr = (Args*) malloc( sizeof(Args) * (steps+1) );
@@ -452,6 +456,10 @@ int main(int argc,char *argv[]){
         free(hMorphMapArr[i]);
         free(hMorphLinesArr[i]);
 	}
+
+    // Timing
+    gettimeofday(end, NULL);
+    printf("Time spent on saving files: %d\n", WALLTIME(end) - WALLTIME(start) );
 
     ///////////////////////////
 
