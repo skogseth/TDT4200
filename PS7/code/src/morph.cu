@@ -350,6 +350,9 @@ float stepSize;
 
 int main(int argc,char *argv[]){
 
+    // Timing
+    auto start_time_tot = chrono::high_resolution_clock::now();
+
 	// Setup //////////////////
 
 	parse(argc, argv);
@@ -374,6 +377,9 @@ int main(int argc,char *argv[]){
 
 
     // Image morphing /////////
+
+    // Timing
+    auto start_time_morph = chrono::high_resolution_clock::now();
 
     // Define pointers for device side memory
     SimpleFeatureLine *dSrcLines, *dDstLines, *dMorphLines;
@@ -426,7 +432,8 @@ int main(int argc,char *argv[]){
         cudaErrorCheck(cudaMemcpy(hMorphMap, dMorphMap, sizeof(pixel)*imgHeightOrig*imgWidthOrig, cudaMemcpyDeviceToHost));
     }
 
-    printf("Image successfully morphed\n");
+    auto stop_time_morph = chrono::high_resolution_clock::now();
+    printf("Time spent on morphing: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_morph-start_time_morph).count() );
 
     ///////////////////////////
 
@@ -435,7 +442,7 @@ int main(int argc,char *argv[]){
     // Saving image ///////////
 
     // Timing
-    auto start = chrono::high_resolution_clock::now();
+    auto start_time_save = chrono::high_resolution_clock::now();
 
 	// Structs for pthread arguments (defined above main)
 	Args* args_arr;
@@ -459,8 +466,8 @@ int main(int argc,char *argv[]){
 	}
 
     // Timing
-    auto stop = chrono::high_resolution_clock::now();
-    printf("Time spent on saving files: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop-start).count() );
+    auto stop_time_save = chrono::high_resolution_clock::now();
+    printf("Time spent on saving files: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_save-start_time_save).count() );
 
     ///////////////////////////
 
@@ -480,6 +487,10 @@ int main(int argc,char *argv[]){
     cudaFree(dSrcImgMap);
     cudaFree(dDstImgMap);
     cudaFree(dMorphMap);
+
+    // Timing
+    auto stop_time_tot = chrono::high_resolution_clock::now();
+    printf("Time spent in total: %ld ms\n", chrono::duration_cast<chrono::milliseconds>(stop_time_tot-start_time_tot).count() );
 
 	return 0;
 }
